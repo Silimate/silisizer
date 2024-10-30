@@ -1,0 +1,3 @@
+[submodule "OpenSTA"]
+	path = OpenSTA
+	url = https://github.com/Silimate/OpenSTA.git
