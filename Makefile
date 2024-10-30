@@ -35,3 +35,7 @@ run-cmake-release:
 
 run-cmake-debug:
 	cmake -DCMAKE_BUILD_TYPE=Debug -DCMAKE_INSTALL_PREFIX=$(PREFIX) -DSURELOG_WITH_TCMALLOC=Off $(ADDITIONAL_CMAKE_OPTIONS) -S . -B dbuild
+
+
+test:
+	cd ../preqorsor/testrtl/chained_adder_timed && ../../../silisizer/build/silisizer ../../../silisizer/tests/chained_adder_timed/silisize.tcl -exit
