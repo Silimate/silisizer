@@ -185,7 +185,7 @@ if (MSVC OR WIN32)
 endif()
 
 target_link_libraries(silisizer-bin PUBLIC silisizer)
-target_link_libraries(silisizer PUBLIC OpenSTA ${TCL_LIB})
+target_link_libraries(silisizer PUBLIC OpenSTA sta_swig ${TCL_LIB})
 
 if (UNIX)
   target_link_libraries(silisizer PRIVATE dl)
