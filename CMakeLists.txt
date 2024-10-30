@@ -134,8 +134,8 @@ get_filename_component(TCL_HEADER_DIR "${TCL_HEADER}" PATH)
 message(STATUS "TCL header path: ${TCL_HEADER_DIR}")
 ################################################################
 
-add_subdirectory(third_party/OpenSTA)
-set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/third_party/OpenSTA)
+add_subdirectory(OpenSTA)
+set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/OpenSTA)
 
 set(SILISIZER_TCL_FILES
   src/Silisizer.tcl
@@ -146,8 +146,8 @@ set(SILISIZER_SWIG_FILES
   )
 
 include(FindSWIG)
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/generated/Silisizer_wrap.cc
-  COMMAND ${SWIG_EXECUTABLE} -tcl8 -c++ -namespace -prefix sta -I${OPENSTA_HOME}/tcl -I${OPENSTA_HOME}/sdf -I${OPENSTA_HOME}/dcalc -I${OPENSTA_HOME}/parasitics -I${OPENSTA_HOME}/verilog -o ${PROJECT_SOURCE_DIR}/generated/Silisizer_wrap.cc ${PROJECT_SOURCE_DIR}/src/Silisizer.i
+add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc
+  COMMAND ${SWIG_EXECUTABLE} -tcl8 -c++ -namespace -prefix sta -I${OPENSTA_HOME}/tcl -I${OPENSTA_HOME}/sdf -I${OPENSTA_HOME}/dcalc -I${OPENSTA_HOME}/parasitics -I${OPENSTA_HOME}/verilog -o ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc ${PROJECT_SOURCE_DIR}/src/Silisizer.i
   WORKING_DIRECTORY ${OPENSTA_HOME}
   DEPENDS ${SILISIZER_SWIG_FILES}
   )
@@ -158,7 +158,7 @@ endif()
 
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
-  ${PROJECT_SOURCE_DIR}/generated/Silisizer_wrap.cc)
+  ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc)
 
 
 add_library(silisizer ${silisizer_SRC})
@@ -171,7 +171,7 @@ target_include_directories(silisizer PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/OpenSTA/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/OpenSTA/include>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
   ${TCL_HEADER_DIR}
@@ -185,7 +185,7 @@ if (MSVC OR WIN32)
 endif()
 
 target_link_libraries(silisizer-bin PUBLIC silisizer)
-target_link_libraries(silisizer PUBLIC OpenSTA ${TCL_LIB} sta_swig.a)
+target_link_libraries(silisizer PUBLIC OpenSTA ${TCL_LIB})
 
 if (UNIX)
   target_link_libraries(silisizer PRIVATE dl)
