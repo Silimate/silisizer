@@ -17,35 +17,6 @@
 #include "sta/Sta.hh"
 
 namespace SILISIZER {
-class dbStaState;
-}
-
-namespace sta {
-class dbNetwork;
-class dbStaReport;
-class dbStaCbk;
-
-class dbSta : public sta::Sta {
- public:
-  ~dbSta() override;
-  void registerStaState(SILISIZER::dbStaState* state);
-  void unregisterStaState(SILISIZER::dbStaState* state);
-
- private:
-  std::set<SILISIZER::dbStaState*> sta_states_;
-};
-}  // namespace sta
-
-namespace SILISIZER {
-
-class dbStaState : public sta::StaState {
- public:
-  void init(sta::dbSta* sta);
-  ~dbStaState() override;
-
- protected:
-  sta::dbSta* sta_ = nullptr;
-};
 
 class Silisizer : public sta::Sta {
  public:
