@@ -14,44 +14,44 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include <iostream>
 #include <tcl.h>
-#include "sta/StaMain.hh"
+
+#include <iostream>
+
 #include "Silisizer.h"
+#include "sta/StaMain.hh"
 
 using namespace SILISIZER;
-static int
-silisizerTclAppInit(Tcl_Interp *interp);
+static int silisizerTclAppInit(Tcl_Interp *interp);
 
-static void
-showUsage(char *prog)
-{
-  printf("Usage: %s [-help] [-version] [-no_init] [-no_splash] cmd_file\n", prog);
+static void showUsage(char *prog) {
+  printf("Usage: %s [-help] [-version] [-no_init] [-no_splash] cmd_file\n",
+         prog);
   printf("  -help              show help and exit\n");
   printf("  -version           show version and exit\n");
   printf("  cmd_file           source cmd_file and exit\n");
 }
 
 // Swig uses C linkage for init functions.
-extern "C"
-{
-  // extern int Silisizer_Init(Tcl_Interp *interp);
-  extern int Sta_Init(Tcl_Interp *interp);
+extern "C" {
+extern int Silisizer_Init(Tcl_Interp *interp);
+extern int Sta_Init(Tcl_Interp *interp);
 }
 
-namespace sta
-{
-  //extern const char *silisizer_tcl_inits[];
-  extern const char *tcl_inits[];
-}
+namespace sta {
+// extern const char *silisizer_tcl_inits[];
+extern const char *tcl_inits[];
+}  // namespace sta
 
 // "Arguments" passed to staTclAppInit.
 static int silisizer_argc;
 static char **silisizer_argv;
+static Silisizer *sizer = nullptr;
 
-int main(int argc, char *argv[])
-{
-  Silisizer *sizer = new Silisizer();
+int silisize() { return sizer->silisize(); }
+
+int main(int argc, char *argv[]) {
+  sizer = new Silisizer();
   sta::initSta();
   sta::Sta::setSta(sizer);
   sizer->makeComponents();
@@ -65,9 +65,7 @@ int main(int argc, char *argv[])
 }
 
 // Tcl init executed inside Tcl_Main.
-static int
-silisizerTclAppInit(Tcl_Interp *interp)
-{
+static int silisizerTclAppInit(Tcl_Interp *interp) {
   std::cout << "Silimate Silisizer executable" << std::endl;
   int argc = silisizer_argc;
   char **argv = silisizer_argv;
@@ -76,7 +74,7 @@ silisizerTclAppInit(Tcl_Interp *interp)
   Tcl_Init(interp);
 
   // Define swig commands.
-  // Silisizer_Init(interp);
+  Silisizer_Init(interp);
   Sta_Init(interp);
 
   sta::Sta *sta = sta::Sta::sta();
@@ -84,7 +82,7 @@ silisizerTclAppInit(Tcl_Interp *interp)
 
   // Eval encoded sta TCL sources.
   sta::evalTclInit(interp, sta::tcl_inits);
-  //sta::evalTclInit(interp, sta::silisizer_tcl_inits);
+  // sta::evalTclInit(interp, sta::silisizer_tcl_inits);
 
   // Import exported commands from sta namespace to global namespace.
   Tcl_Eval(interp, "sta::define_sta_cmds");
@@ -92,19 +90,14 @@ silisizerTclAppInit(Tcl_Interp *interp)
 
   bool exit_after_cmd_file = sta::findCmdLineFlag(argc, argv, "-exit");
 
-  if (argc > 2 ||
-      (argc > 1 && argv[1][0] == '-'))
+  if (argc > 2 || (argc > 1 && argv[1][0] == '-'))
     showUsage(argv[0]);
-  else
-  {
-    if (argc == 2)
-    {
+  else {
+    if (argc == 2) {
       char *cmd_file = argv[1];
-      if (cmd_file)
-      {
+      if (cmd_file) {
         sta::sourceTclFile(cmd_file, false, false, interp);
-        if (exit_after_cmd_file)
-          exit(EXIT_SUCCESS);
+        if (exit_after_cmd_file) exit(EXIT_SUCCESS);
       }
     }
   }

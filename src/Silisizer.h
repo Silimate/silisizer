@@ -16,45 +16,40 @@
 
 #include "sta/Sta.hh"
 
-
-namespace SILISIZER
-{
+namespace SILISIZER {
 class dbStaState;
 }
 
-namespace sta
-{
-  class dbNetwork;
-  class dbStaReport;
-  class dbStaCbk;
+namespace sta {
+class dbNetwork;
+class dbStaReport;
+class dbStaCbk;
 
-  class dbSta : public sta::Sta
-  {
-  public:
-    ~dbSta() override;
-    void registerStaState(SILISIZER::dbStaState* state);
-    void unregisterStaState(SILISIZER::dbStaState* state);
-  private:
-    std::set<SILISIZER::dbStaState*> sta_states_;
-  };
-}
+class dbSta : public sta::Sta {
+ public:
+  ~dbSta() override;
+  void registerStaState(SILISIZER::dbStaState* state);
+  void unregisterStaState(SILISIZER::dbStaState* state);
 
-namespace SILISIZER
-{
+ private:
+  std::set<SILISIZER::dbStaState*> sta_states_;
+};
+}  // namespace sta
 
-  class dbStaState : public sta::StaState
-  {
-  public:
-    void init(sta::dbSta *sta);
-    ~dbStaState() override;
+namespace SILISIZER {
 
-  protected:
-    sta::dbSta *sta_ = nullptr;
-  };
+class dbStaState : public sta::StaState {
+ public:
+  void init(sta::dbSta* sta);
+  ~dbStaState() override;
 
-  class Silisizer : public sta::Sta
-  {
-  public:
-    ~Silisizer() {}
-  };
-}
+ protected:
+  sta::dbSta* sta_ = nullptr;
+};
+
+class Silisizer : public sta::Sta {
+ public:
+  ~Silisizer() {}
+  int silisize();
+};
+}  // namespace SILISIZER

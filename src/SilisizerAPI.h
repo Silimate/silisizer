@@ -14,36 +14,6 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include "Silisizer.h"
 
-#include "sta/Sta.hh"
+void siliresize() {}
 
-namespace sta {
-void dbSta::registerStaState(SILISIZER::dbStaState *state) {
-  sta_states_.insert(state);
-}
-
-void dbSta::unregisterStaState(SILISIZER::dbStaState *state) {
-  sta_states_.erase(state);
-}
-}  // namespace sta
-
-namespace SILISIZER {
-
-void dbStaState::init(sta::dbSta *sta) {
-  sta_ = sta;
-  copyState(sta);
-  sta->registerStaState(this);
-}
-
-dbStaState::~dbStaState() {
-  if (sta_) {
-    sta_->unregisterStaState(this);
-  }
-}
-
-int Silisizer::silisize() {
-  return 0;
-}
-
-}  // namespace SILISIZER
