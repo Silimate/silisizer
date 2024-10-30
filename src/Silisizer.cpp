@@ -13,36 +13,27 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-
+#include <iostream>
+#include "sta/Network.hh"
+#include "sta/PortDirection.hh"
 #include "Silisizer.h"
 
 #include "sta/Sta.hh"
 
-namespace sta {
-void dbSta::registerStaState(SILISIZER::dbStaState *state) {
-  sta_states_.insert(state);
-}
-
-void dbSta::unregisterStaState(SILISIZER::dbStaState *state) {
-  sta_states_.erase(state);
-}
-}  // namespace sta
-
 namespace SILISIZER {
 
-void dbStaState::init(sta::dbSta *sta) {
-  sta_ = sta;
-  copyState(sta);
-  sta->registerStaState(this);
-}
-
-dbStaState::~dbStaState() {
-  if (sta_) {
-    sta_->unregisterStaState(this);
-  }
-}
-
 int Silisizer::silisize() {
+  sta::Network* network = this->network(); 
+  std::cout << "Network: " << network << std::endl;
+  sta::Instance* top_inst = network->topInstance();
+  std::cout << "topInstance: " << top_inst << std::endl;
+
+  sta::InstancePinIterator *pin_iter = network->pinIterator(top_inst);
+  while (pin_iter->hasNext()) {
+    sta::Pin *pin = pin_iter->next();
+    if (network->direction(pin)->isAnyOutput())
+      std::cout << network->name(pin) << std::endl;
+  }
   return 0;
 }
 
