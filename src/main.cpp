@@ -13,6 +13,8 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
+
+#include <iostream>
 #include <tcl.h>
 #include "sta/StaMain.hh"
 #include "Silisizer.h"
@@ -27,7 +29,6 @@ showUsage(char *prog)
   printf("Usage: %s [-help] [-version] [-no_init] [-no_splash] cmd_file\n", prog);
   printf("  -help              show help and exit\n");
   printf("  -version           show version and exit\n");
-  printf("  -no_init           do not read .sta init file\n");
   printf("  cmd_file           source cmd_file and exit\n");
 }
 
@@ -67,6 +68,7 @@ int main(int argc, char *argv[])
 static int
 silisizerTclAppInit(Tcl_Interp *interp)
 {
+  std::cout << "Silimate Silisizer executable" << std::endl;
   int argc = silisizer_argc;
   char **argv = silisizer_argv;
 
@@ -87,12 +89,6 @@ silisizerTclAppInit(Tcl_Interp *interp)
   // Import exported commands from sta namespace to global namespace.
   Tcl_Eval(interp, "sta::define_sta_cmds");
   Tcl_Eval(interp, "namespace import sta::*");
-
-  if (!sta::findCmdLineFlag(argc, argv, "-no_init"))
-  {
-    const char *init_filename = "[file join $env(HOME) .silisizer]";
-    sta::sourceTclFile(init_filename, true, false, interp);
-  }
 
   bool exit_after_cmd_file = sta::findCmdLineFlag(argc, argv, "-exit");
 
