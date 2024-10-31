@@ -16,7 +16,9 @@
 #include "Silisizer.h"
 
 #include <iostream>
+#include <regex>
 
+#include "sta/Liberty.hh"
 #include "sta/Network.hh"
 #include "sta/PathEnd.hh"
 #include "sta/PortDirection.hh"
@@ -26,44 +28,96 @@ namespace SILISIZER {
 
 int Silisizer::silisize() {
   sta::Network* network = this->network();
-  std::cout << "Network: " << network << std::endl;
-  sta::Instance* top_inst = network->topInstance();
-  std::cout << "topInstance: " << top_inst << std::endl;
 
-  sta::PathEndSeq ends = sta_->findPathEnds(
-      /*exception from*/ nullptr, /*exception through*/ nullptr,
-      /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
-      sta::MinMaxAll::all(),
-      /*group_count*/ 10000, /*endpoint_count*/ 1, /*unique_pins*/ true,
-      /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
-      /*sort_by_slack*/ true,
-      /*groups->size() ? groups :*/ nullptr,
-      /*setup*/ true, /*hold*/ false,
-      /*recovery*/ false, /*removal*/ false,
-      /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
+  bool debug = 0;
 
-  for (sta::PathEnd* pathend : ends) {
-    sta::Path* path = pathend->path();
-    sta::Pin* pin = path->pin(this);
-    std::cout << "End Violation at: " << network->name(pin) << std::endl;
-    sta::PathRef p;
-    path->prevPath(this, p);
-    while (!p.isNull()) {
-      pin = p.pin(this);
-      sta::Instance* inst = network->instance(pin);
-      std::cout << " From: " << network->name(inst) << " / "
-                << network->name(pin) << std::endl;
-      p.prevPath(this, p);
+  while (1) {
+    sta::PathEndSeq ends = sta_->findPathEnds(
+        /*exception from*/ nullptr, /*exception through*/ nullptr,
+        /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
+        sta::MinMaxAll::max(),
+        /*group_count*/ 10000, /*endpoint_count*/ 1, /*unique_pins*/ true,
+        /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
+        /*sort_by_slack*/ true,
+        /*groups->size() ? groups :*/ nullptr,
+        /*setup*/ true, /*hold*/ false,
+        /*recovery*/ false, /*removal*/ false,
+        /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
+    bool moreOptNeeded = !ends.empty();
+
+    std::unordered_map<sta::Instance*, int> offendingInstCount;
+
+    for (sta::PathEnd* pathend : ends) {
+      sta::Path* path = pathend->path();
+      sta::Pin* pin = path->pin(this);
+      if (debug)
+        std::cout << "End Violation at: " << network->name(pin) << std::endl;
+      sta::PathRef p;
+      path->prevPath(this, p);
+      //float slack = p.slack(this);
+      //if (slack >= 0.0)
+      //  continue;
+      while (!p.isNull()) {
+        pin = p.pin(this);
+        sta::Instance* inst = network->instance(pin);
+        if (offendingInstCount.find(inst) == offendingInstCount.end()) {
+          offendingInstCount.emplace(inst, 1);
+        } else {
+          offendingInstCount.find(inst)->second++;
+        }
+        if (debug)
+          std::cout << " From: " << network->name(inst) << " / "
+                    << network->name(pin) << std::endl;
+        p.prevPath(this, p);
+      }
+    }
+
+    sta::Instance* offender = nullptr;
+    int highestCount = 0;
+    for (auto pair : offendingInstCount) {
+      if (pair.second > highestCount) {
+        sta::Cell* cell = network->cell(pair.first);
+        // If the instance does not have a cell, skip
+        if (!cell) {
+          continue;
+        }
+        sta::LibertyCell* libcell = network->libertyCell(cell);
+        // If it's not a liberty cell (module), skip
+        if (!libcell) continue;
+        std::string libcellname = libcell->name();
+        // If it's not a speed0 cell, skip
+        if (libcellname.find("_sp0_") == std::string::npos) continue;
+        highestCount = pair.second;
+        offender = pair.first;
+      }
+    }
+
+    if (offender == nullptr) {
+      std::cout << "Silisizer optimization done!" << std::endl;
+      break;
+    }
+    sta::Cell* cell = network->cell(offender);
+    sta::LibertyLibrary* library = network->libertyLibrary(offender);
+    sta::LibertyCell* libcell = network->libertyCell(cell);
+    std::string from_cell_name = libcell->name();
+    if (debug)
+      std::cout << "Fixing: " << network->name(offender)
+                << " of type: " << libcell->name() << std::endl;
+    std::string to_cell_name =
+        std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
+    sta::LibertyCell* to_cell = library->findLibertyCell(to_cell_name.c_str());
+
+    if (!to_cell) {
+      std::cout << "Silisizer optimization done!" << std::endl;
+      break;
+    }
+    Sta::sta()->replaceCell(offender, to_cell);
+
+    if (!moreOptNeeded) {
+      std::cout << "Silisizer optimization done!" << std::endl;
+      break;
     }
   }
-
-  sta::InstancePinIterator* pin_iter = network->pinIterator(top_inst);
-  while (pin_iter->hasNext()) {
-    sta::Pin* pin = pin_iter->next();
-    if (network->direction(pin)->isAnyOutput())
-      std::cout << "Output pins: " << network->name(pin) << std::endl;
-  }
-
   return 0;
 }
 
