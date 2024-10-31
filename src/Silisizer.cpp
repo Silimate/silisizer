@@ -45,7 +45,16 @@ int Silisizer::silisize() {
   for (sta::PathEnd* pathend : ends) {
     sta::Path* path = pathend->path();
     sta::Pin* pin = path->pin(this);
-    std::cout << "Violation at: " << network->name(pin) << std::endl;
+    std::cout << "End Violation at: " << network->name(pin) << std::endl;
+    sta::PathRef p;
+    path->prevPath(this, p);
+    while (!p.isNull()) {
+      pin = p.pin(this);
+      sta::Instance* inst = network->instance(pin);
+      std::cout << " From: " << network->name(inst) << " / "
+                << network->name(pin) << std::endl;
+      p.prevPath(this, p);
+    }
   }
 
   sta::InstancePinIterator* pin_iter = network->pinIterator(top_inst);
