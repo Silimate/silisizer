@@ -33,7 +33,7 @@ int Silisizer::silisize() {
   uint32_t end_point_count = 10;
   uint32_t concurent_replace_count = 3;
   bool debug = 0;
-  std::ofstream transforms("resized_cells.csv");
+  std::ofstream transforms("preqorsor/data/resized_cells.csv");
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -50,7 +50,7 @@ int Silisizer::silisize() {
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
     bool moreOptNeeded = !ends.empty();
     if (!moreOptNeeded) {
-      std::cout << "Silisizer optimization done!" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
       break;
     }
     std::unordered_map<sta::Instance*, double> offendingInstCount;
@@ -102,7 +102,7 @@ int Silisizer::silisize() {
       }
     }
     if (offendingInstCount.empty()) {
-      std::cout << "Silisizer optimization done!" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
       break;
     }
     std::vector<std::pair<sta::Instance*, double>> offenders;
@@ -125,7 +125,7 @@ int Silisizer::silisize() {
     }
 
     if (offenders.empty()) {
-      std::cout << "Silisizer optimization done!" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
       break;
     }
 
@@ -147,13 +147,14 @@ int Silisizer::silisize() {
       if (!to_cell) {
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
-        std::cout << "Silisizer optimization done!" << std::endl;
+        std::cout << "Timing optimization done!" << std::endl;
         transforms.close();
         return 0;
       }
       Sta::sta()->replaceCell(offender, to_cell);
-      transforms << network->name(offender) << "," << from_cell_name << ","
-                 << to_cell_name << std::endl;
+      if (transforms.good())
+        transforms << network->name(offender) << "," << from_cell_name << ","
+                   << to_cell_name << std::endl;
     }
   }
   transforms.close();
