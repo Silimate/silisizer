@@ -41,4 +41,4 @@ test:
 	cd ../preqorsor/testrtl/chained_adder_timed && ../../../silisizer/build/silisizer ../../../silisizer/tests/chained_adder_timed/silisize.tcl -exit
 
 test_report: test
-	cat ../preqorsor/testrtl/chained_adder_timed/preqorsor/reports/sta.rpt
+	cat ../preqorsor/testrtl/chained_adder_timed/preqorsor/reports/sta_final.rpt
