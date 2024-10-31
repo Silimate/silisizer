@@ -141,8 +141,6 @@ int Silisizer::silisize() {
       std::cout << "  Resizing instance " << network->name(offender)
                 << " of type: " << from_cell_name
                 << " to type: " << to_cell_name << std::endl;
-      transforms << network->name(offender) << "," << from_cell_name << ","
-                 << to_cell_name << std::endl;
       sta::LibertyCell* to_cell =
           library->findLibertyCell(to_cell_name.c_str());
 
@@ -154,6 +152,8 @@ int Silisizer::silisize() {
         return 0;
       }
       Sta::sta()->replaceCell(offender, to_cell);
+      transforms << network->name(offender) << "," << from_cell_name << ","
+                 << to_cell_name << std::endl;
     }
   }
   transforms.close();
