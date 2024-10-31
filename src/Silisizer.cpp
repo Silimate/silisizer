@@ -109,9 +109,11 @@ int Silisizer::silisize() {
       if (offenders.empty()) {
         offenders.push_back(std::pair(pair.first, pair.second));
       } else {
-        for (std::vector<std::pair<sta::Instance*, double>>::iterator itr = offenders.begin(); itr != offenders.end(); itr++) {
+        for (std::vector<std::pair<sta::Instance*, double>>::iterator itr =
+                 offenders.begin();
+             itr != offenders.end(); itr++) {
           if ((*itr).second < pair.second) {
-            offenders.insert(++itr,std::pair(pair.first, pair.second));
+            offenders.insert(++itr, std::pair(pair.first, pair.second));
             if (offenders.size() > concurent_replace_count) {
               offenders.pop_back();
             }
@@ -120,7 +122,7 @@ int Silisizer::silisize() {
         }
       }
     }
-    
+
     if (offenders.empty()) {
       std::cout << "Silisizer optimization done!" << std::endl;
       break;
