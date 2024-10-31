@@ -28,12 +28,13 @@ namespace SILISIZER {
 
 int Silisizer::silisize() {
   sta::Network* network = this->network();
-  int timing_group_count = 10;
-  int end_point_count = 10;
-
+  uint32_t timing_group_count = 10;
+  uint32_t end_point_count = 10;
+  uint32_t concurent_replace_count = 3;
   bool debug = 0;
 
   while (1) {
+    std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
         /*exception from*/ nullptr, /*exception through*/ nullptr,
         /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
@@ -70,6 +71,24 @@ int Silisizer::silisize() {
         sta::Delay delay = 0.0f;
         if (prev_arc) delay = prev_arc->intrinsicDelay();
         sta::Instance* inst = network->instance(pin);
+        sta::Cell* cell = network->cell(inst);
+        // If the instance does not have a cell, skip
+        if (!cell) {
+          p.prevPath(this, p);
+          continue;
+        }
+        sta::LibertyCell* libcell = network->libertyCell(cell);
+        // If it's not a liberty cell (module), skip
+        if (!libcell) {
+          p.prevPath(this, p);
+          continue;
+        }
+        std::string libcellname = libcell->name();
+        // If it's not a speed0 cell, skip
+        if (libcellname.find("_sp0_") == std::string::npos) {
+          p.prevPath(this, p);
+          continue;
+        }
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
           offendingInstCount.emplace(inst, delay);
         } else {
@@ -81,48 +100,57 @@ int Silisizer::silisize() {
         p.prevPath(this, p);
       }
     }
-
-    sta::Instance* offender = nullptr;
-    int highestCount = 0;
+    if (offendingInstCount.empty()) {
+      std::cout << "Silisizer optimization done!" << std::endl;
+      break;
+    }
+    std::vector<std::pair<sta::Instance*, double>> offenders;
     for (auto pair : offendingInstCount) {
-      if (pair.second > highestCount) {
-        sta::Cell* cell = network->cell(pair.first);
-        // If the instance does not have a cell, skip
-        if (!cell) {
-          continue;
+      if (offenders.empty()) {
+        offenders.push_back(std::pair(pair.first, pair.second));
+      } else {
+        for (std::vector<std::pair<sta::Instance*, double>>::iterator itr =
+                 offenders.begin();
+             itr != offenders.end(); itr++) {
+          if ((*itr).second < pair.second) {
+            offenders.insert(++itr, std::pair(pair.first, pair.second));
+            if (offenders.size() > concurent_replace_count) {
+              offenders.pop_back();
+            }
+            break;
+          }
         }
-        sta::LibertyCell* libcell = network->libertyCell(cell);
-        // If it's not a liberty cell (module), skip
-        if (!libcell) continue;
-        std::string libcellname = libcell->name();
-        // If it's not a speed0 cell, skip
-        if (libcellname.find("_sp0_") == std::string::npos) continue;
-        highestCount = pair.second;
-        offender = pair.first;
       }
     }
 
-    if (offender == nullptr) {
+    if (offenders.empty()) {
       std::cout << "Silisizer optimization done!" << std::endl;
       break;
     }
-    sta::Cell* cell = network->cell(offender);
-    sta::LibertyLibrary* library = network->libertyLibrary(offender);
-    sta::LibertyCell* libcell = network->libertyCell(cell);
-    std::string from_cell_name = libcell->name();
-    std::string to_cell_name =
-        std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
-    // if (debug)
-    std::cout << "Resizing instance " << network->name(offender)
-              << " of type: " << from_cell_name << " to type: " << to_cell_name << std::endl;
-    sta::LibertyCell* to_cell = library->findLibertyCell(to_cell_name.c_str());
 
-    if (!to_cell) {
-      std::cout << "WARNING: Missing cell model: " << to_cell_name << std::endl;
-      std::cout << "Silisizer optimization done!" << std::endl;
-      break;
+    for (auto offender_pair : offenders) {
+      sta::Instance* offender = offender_pair.first;
+      sta::Cell* cell = network->cell(offender);
+      sta::LibertyLibrary* library = network->libertyLibrary(offender);
+      sta::LibertyCell* libcell = network->libertyCell(cell);
+      std::string from_cell_name = libcell->name();
+      std::string to_cell_name =
+          std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
+      // if (debug)
+      std::cout << "  Resizing instance " << network->name(offender)
+                << " of type: " << from_cell_name
+                << " to type: " << to_cell_name << std::endl;
+      sta::LibertyCell* to_cell =
+          library->findLibertyCell(to_cell_name.c_str());
+
+      if (!to_cell) {
+        std::cout << "WARNING: Missing cell model: " << to_cell_name
+                  << std::endl;
+        std::cout << "Silisizer optimization done!" << std::endl;
+        break;
+      }
+      Sta::sta()->replaceCell(offender, to_cell);
     }
-    Sta::sta()->replaceCell(offender, to_cell);
   }
   return 0;
 }
