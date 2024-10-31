@@ -6,12 +6,12 @@ project(SILISIZER VERSION 1.84)
 # Detect build type, fallback to release and throw a warning if use didn't
 # specify any
 if(NOT CMAKE_BUILD_TYPE)
-  message(WARNING "Build type not set, falling back to Release mode.
+  message(WARNING "Build type not set, falling back to RELEASE mode.
  To specify build type use:
- -DCMAKE_BUILD_TYPE=<mode> where <mode> is Debug or Release.")
+ -DCMAKE_BUILD_TYPE=<mode> where <mode> is DEBUG or RELEASE.")
   set(CMAKE_BUILD_TYPE
-      "Release"
-      CACHE STRING "Choose the type of build, options are: Debug Release."
+      "RELEASE"
+      CACHE STRING "Choose the type of build, options are: DEBUG RELEASE."
             FORCE)
 endif(NOT CMAKE_BUILD_TYPE)
 
@@ -64,7 +64,7 @@ else()
   #    " -fsanitize=address -fno-omit-frame-pointer"
   #)
   set(CMAKE_CXX_FLAGS_DEBUG
-      "${CMAKE_CXX_FLAGS_DEBUG} -Wall -O0 -g ${MSYS_COMPILE_OPTIONS} ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
+      "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g ${MSYS_COMPILE_OPTIONS} ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
   )
   set(CMAKE_CXX_FLAGS_RELEASE
       "${CMAKE_CXX_FLAGS_RELEASE} -Wall -O3 ${MSYS_COMPILE_OPTIONS} -DNDEBUG ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
