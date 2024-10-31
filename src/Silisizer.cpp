@@ -34,6 +34,10 @@ int Silisizer::silisize() {
   uint32_t concurent_replace_count = 3;
   bool debug = 0;
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
+  if (transforms.good()) {
+    transforms << "Instance" << "," << "From cell" << ","
+               << "To cell" << std::endl;
+  }
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
