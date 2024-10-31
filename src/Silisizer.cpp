@@ -28,6 +28,8 @@ namespace SILISIZER {
 
 int Silisizer::silisize() {
   sta::Network* network = this->network();
+  int timing_group_count = 10;
+  int end_point_count = 10;
 
   bool debug = 0;
 
@@ -36,7 +38,8 @@ int Silisizer::silisize() {
         /*exception from*/ nullptr, /*exception through*/ nullptr,
         /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
         sta::MinMaxAll::max(),
-        /*group_count*/ 10000, /*endpoint_count*/ 1, /*unique_pins*/ true,
+        /*group_count*/ timing_group_count, /*endpoint_count*/ end_point_count,
+        /*unique_pins*/ true,
         /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
         /*sort_by_slack*/ true,
         /*groups->size() ? groups :*/ nullptr,
@@ -44,8 +47,11 @@ int Silisizer::silisize() {
         /*recovery*/ false, /*removal*/ false,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
     bool moreOptNeeded = !ends.empty();
-
-    std::unordered_map<sta::Instance*, int> offendingInstCount;
+    if (!moreOptNeeded) {
+      std::cout << "Silisizer optimization done!" << std::endl;
+      break;
+    }
+    std::unordered_map<sta::Instance*, double> offendingInstCount;
 
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
@@ -54,16 +60,20 @@ int Silisizer::silisize() {
         std::cout << "End Violation at: " << network->name(pin) << std::endl;
       sta::PathRef p;
       path->prevPath(this, p);
-      //float slack = p.slack(this);
-      //if (slack >= 0.0)
-      //  continue;
+      float slack = pathend->slack(this);
+      if (slack >= 0.0) continue;
       while (!p.isNull()) {
         pin = p.pin(this);
+        sta::PathRef prev_path;
+        sta::TimingArc* prev_arc = nullptr;
+        p.prevPath(this, prev_path, prev_arc);
+        sta::Delay delay = 0.0f;
+        if (prev_arc) delay = prev_arc->intrinsicDelay();
         sta::Instance* inst = network->instance(pin);
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
-          offendingInstCount.emplace(inst, 1);
+          offendingInstCount.emplace(inst, delay);
         } else {
-          offendingInstCount.find(inst)->second++;
+          offendingInstCount.find(inst)->second += delay;
         }
         if (debug)
           std::cout << " From: " << network->name(inst) << " / "
@@ -100,23 +110,19 @@ int Silisizer::silisize() {
     sta::LibertyLibrary* library = network->libertyLibrary(offender);
     sta::LibertyCell* libcell = network->libertyCell(cell);
     std::string from_cell_name = libcell->name();
-    if (debug)
-      std::cout << "Fixing: " << network->name(offender)
-                << " of type: " << libcell->name() << std::endl;
     std::string to_cell_name =
         std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
+    // if (debug)
+    std::cout << "Resizing instance " << network->name(offender)
+              << " of type: " << from_cell_name << " to type: " << to_cell_name << std::endl;
     sta::LibertyCell* to_cell = library->findLibertyCell(to_cell_name.c_str());
 
     if (!to_cell) {
+      std::cout << "WARNING: Missing cell model: " << to_cell_name << std::endl;
       std::cout << "Silisizer optimization done!" << std::endl;
       break;
     }
     Sta::sta()->replaceCell(offender, to_cell);
-
-    if (!moreOptNeeded) {
-      std::cout << "Silisizer optimization done!" << std::endl;
-      break;
-    }
   }
   return 0;
 }
