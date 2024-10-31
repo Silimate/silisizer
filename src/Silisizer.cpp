@@ -13,27 +13,48 @@
 //
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
-#include <iostream>
-#include "sta/Network.hh"
-#include "sta/PortDirection.hh"
 #include "Silisizer.h"
 
+#include <iostream>
+
+#include "sta/Network.hh"
+#include "sta/PathEnd.hh"
+#include "sta/PortDirection.hh"
 #include "sta/Sta.hh"
 
 namespace SILISIZER {
 
 int Silisizer::silisize() {
-  sta::Network* network = this->network(); 
+  sta::Network* network = this->network();
   std::cout << "Network: " << network << std::endl;
   sta::Instance* top_inst = network->topInstance();
   std::cout << "topInstance: " << top_inst << std::endl;
 
-  sta::InstancePinIterator *pin_iter = network->pinIterator(top_inst);
-  while (pin_iter->hasNext()) {
-    sta::Pin *pin = pin_iter->next();
-    if (network->direction(pin)->isAnyOutput())
-      std::cout << network->name(pin) << std::endl;
+  sta::PathEndSeq ends = sta_->findPathEnds(
+      /*exception from*/ nullptr, /*exception through*/ nullptr,
+      /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
+      sta::MinMaxAll::all(),
+      /*group_count*/ 10000, /*endpoint_count*/ 1, /*unique_pins*/ true,
+      /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
+      /*sort_by_slack*/ true,
+      /*groups->size() ? groups :*/ nullptr,
+      /*setup*/ true, /*hold*/ false,
+      /*recovery*/ false, /*removal*/ false,
+      /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
+
+  for (sta::PathEnd* pathend : ends) {
+    sta::Path* path = pathend->path();
+    sta::Pin* pin = path->pin(this);
+    std::cout << "Violation at: " << network->name(pin) << std::endl;
   }
+
+  sta::InstancePinIterator* pin_iter = network->pinIterator(top_inst);
+  while (pin_iter->hasNext()) {
+    sta::Pin* pin = pin_iter->next();
+    if (network->direction(pin)->isAnyOutput())
+      std::cout << "Output pins: " << network->name(pin) << std::endl;
+  }
+
   return 0;
 }
 

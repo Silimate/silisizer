@@ -18,8 +18,10 @@ read_sdc ../../tmpl/default.sdc
 read_sdc constraints.sdc
 puts "Reporting combo loops..."
 check_setup -verbose -loops > preqorsor/reports/loops.rpt
+puts "Reporting Intial timing..."
+report_checks  -no_line_splits -path_delay max -endpoint_count 1 -group_count 10000 -unique_paths_to_endpoint  > preqorsor/reports/sta_initial.rpt
 puts "Silisizer..."
 sta::silisize
-puts "Reporting timing..."
-report_checks  -no_line_splits -path_delay max -endpoint_count 1 -group_count 10000 -unique_paths_to_endpoint  > preqorsor/reports/sta.rpt
+puts "Reporting Final timing..."
+report_checks  -no_line_splits -path_delay max -endpoint_count 1 -group_count 10000 -unique_paths_to_endpoint  > preqorsor/reports/sta_final.rpt
 puts "STA finished!"

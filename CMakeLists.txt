@@ -174,6 +174,9 @@ target_include_directories(silisizer PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/OpenSTA/include>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/OpenSTA>
+  $<INSTALL_INTERFACE:include>)
+target_include_directories(silisizer PUBLIC
   ${TCL_HEADER_DIR}
   $<INSTALL_INTERFACE:include>)
 
