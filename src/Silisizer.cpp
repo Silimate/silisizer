@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "Silisizer.h"
 
+#include <fstream>
 #include <iostream>
 #include <regex>
 
@@ -32,7 +33,7 @@ int Silisizer::silisize() {
   uint32_t end_point_count = 10;
   uint32_t concurent_replace_count = 3;
   bool debug = 0;
-
+  std::ofstream transforms("resized_cells.csv");
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -140,6 +141,8 @@ int Silisizer::silisize() {
       std::cout << "  Resizing instance " << network->name(offender)
                 << " of type: " << from_cell_name
                 << " to type: " << to_cell_name << std::endl;
+      transforms << network->name(offender) << "," << from_cell_name << ","
+                 << to_cell_name << std::endl;
       sta::LibertyCell* to_cell =
           library->findLibertyCell(to_cell_name.c_str());
 
@@ -147,11 +150,13 @@ int Silisizer::silisize() {
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
         std::cout << "Silisizer optimization done!" << std::endl;
-        break;
+        transforms.close();
+        return 0;
       }
       Sta::sta()->replaceCell(offender, to_cell);
     }
   }
+  transforms.close();
   return 0;
 }
 
