@@ -48,12 +48,12 @@ static int silisizer_argc;
 static char **silisizer_argv;
 static Silisizer *sizer = nullptr;
 
-int silisize(int max_timer_iterations = 200, int nb_concurent_paths = 10,
-             int nb_initial_concurent_changes = 3,
-             int nb_high_effort_concurent_changes = 20) {
-  return sizer->silisize(max_timer_iterations, nb_concurent_paths,
-                         nb_initial_concurent_changes,
-                         nb_high_effort_concurent_changes);
+int silisize(int max_timer_iterations = 200, int nb_concurrent_paths = 10,
+             int nb_initial_concurrent_changes = 3,
+             int nb_high_effort_concurrent_changes = 20) {
+  return sizer->silisize(max_timer_iterations, nb_concurrent_paths,
+                         nb_initial_concurrent_changes,
+                         nb_high_effort_concurrent_changes);
 }
 
 int main(int argc, char *argv[]) {
