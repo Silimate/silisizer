@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "Silisizer.h"
 
+#include <cmath>
 #include <fstream>
 #include <iostream>
 #include <regex>
@@ -27,13 +28,13 @@
 
 namespace SILISIZER {
 
-int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
-                        int nb_initial_concurent_changes,
-                        int nb_high_effort_concurent_changes) {
+int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
+                        int nb_initial_concurrent_changes,
+                        int nb_high_effort_concurrent_changes) {
   sta::Network* network = this->network();
-  uint32_t timing_group_count = nb_concurent_paths;
-  uint32_t end_point_count = nb_concurent_paths;
-  uint32_t concurent_replace_count = nb_initial_concurent_changes;
+  uint32_t timing_group_count = nb_concurrent_paths;
+  uint32_t end_point_count = nb_concurrent_paths;
+  uint32_t concurrent_replace_count = nb_initial_concurrent_changes;
   bool debug = 0;
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
   if (transforms.good()) {
@@ -41,6 +42,8 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
                << "To cell" << std::endl;
   }
   int loopCount = 0;
+  double previous_wns = 0.0f;
+  bool max_effort = false;
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -57,12 +60,15 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
     bool moreOptNeeded = !ends.empty();
     if (!moreOptNeeded) {
+      std::cout << "Final WNS: 0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
     std::unordered_map<sta::Instance*, double> offendingInstCount;
     if (debug) std::cout << "Retuned nb paths: " << ends.size() << std::endl;
-
+    double wns = 0.0f;
+    bool fixableWnsPath = false;
+    sta::PathEnd* wnsPath = nullptr;
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
       sta::Pin* pin = path->pin(this);
@@ -72,6 +78,13 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
       path->prevPath(this, p);
       float slack = pathend->slack(this);
       if (slack >= 0.0) continue;
+      bool wnsPath = false;
+      if (slack < wns) {
+        fixableWnsPath = false;
+        wnsPath = true;
+        wns = slack;
+        wnsPath = pathend;
+      }
       while (!p.isNull()) {
         pin = p.pin(this);
         sta::PathRef prev_path;
@@ -104,6 +117,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
         } else {
           offendingInstCount.find(inst)->second += delay;
         }
+        if (wnsPath) fixableWnsPath = true;
         if (debug)
           std::cout << " From: " << network->name(inst) << " / "
                     << network->name(pin) << std::endl;
@@ -114,6 +128,22 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
       std::cout << "offendingInstCount: " << offendingInstCount.size()
                 << std::endl;
     if (offendingInstCount.empty()) {
+      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
+      break;
+    }
+    if (!fixableWnsPath) {
+      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
+      std::cout << "WARNING: WNS Path does not contain any resizable cells!\n";
+      sta::PathRef p;
+      sta::Path* path = wnsPath->path();
+      path->prevPath(this, p);
+      while (!p.isNull()) {
+        p.prevPath(this, p);
+        sta::Pin* pin = p.pin(this);
+        sta::Instance* inst = network->instance(pin);
+        std::cout << "WNS Path: " << network->name(inst) << std::endl;
+      }
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
@@ -127,7 +157,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
              itr != offenders.end(); itr++) {
           if ((*itr).second < pair.second) {
             offenders.insert(++itr, std::pair(pair.first, pair.second));
-            if (offenders.size() > concurent_replace_count) {
+            if (offenders.size() > concurrent_replace_count) {
               offenders.pop_back();
             }
             break;
@@ -137,6 +167,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
     }
     if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
     if (offenders.empty()) {
+      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
@@ -159,6 +190,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
       if (!to_cell) {
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
+        std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
         std::cout << "Timing optimization done!" << std::endl;
         transforms.close();
         return 0;
@@ -169,20 +201,50 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
                    << to_cell_name << std::endl;
     }
     loopCount++;
-    if (loopCount > 10) {
-      concurent_replace_count = nb_high_effort_concurent_changes / 4;
+    if ((!max_effort) && (loopCount == 10)) {
+      concurrent_replace_count = nb_high_effort_concurrent_changes / 4;
+      if (concurrent_replace_count < 1) {
+        concurrent_replace_count = 1;
+      }
+      std::cout << "Increasing concurrent resizings to: "
+                << concurrent_replace_count << std::endl;
     }
-    if (loopCount > 20) {
-      timing_group_count = 5;
-      end_point_count = 1;
-      concurent_replace_count = nb_high_effort_concurent_changes;
-    }
-    if (loopCount > max_timer_iterations) {
+    if ((!max_effort) &&
+        (((loopCount == 20) ||
+          (fabs((fabs(wns) * 1e12)) - (fabs(previous_wns) * 1e12)) < 1.0))) {
+      timing_group_count *= 2;
+      end_point_count *= 2;
+      concurrent_replace_count = nb_high_effort_concurrent_changes;
+      std::cout << "Analysing " << end_point_count << " paths" << std::endl;
+      max_effort = true;
+    } else if ((max_effort) && ((fabs((fabs(wns) * 1e12)) -
+                                 (fabs(previous_wns) * 1e12)) < 1.0)) {
+      concurrent_replace_count *= 2;
+      if (concurrent_replace_count > 10000) concurrent_replace_count = 10000;
+      timing_group_count *= 2;
+      if (timing_group_count > 2000) timing_group_count = 2000;
+      end_point_count *= 2;
+      if (end_point_count > 2000) {
+        end_point_count = 2000;
+      }
+      std::cout << "Analysing " << end_point_count << " paths" << std::endl;
+    } else if ((max_effort) && ((fabs((fabs(wns) * 1e12)) -
+                                 (fabs(previous_wns) * 1e12)) < 0.001)) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       transforms.close();
       return 0;
     }
+    if (loopCount > max_timer_iterations) {
+      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
+      transforms.close();
+      return 0;
+    }
+    std::cout << "Current WNS: " << -(wns * 1e12) << "ps" << std::endl;
+    previous_wns = wns;
   }
   transforms.close();
   return 0;
