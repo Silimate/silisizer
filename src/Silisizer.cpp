@@ -27,11 +27,13 @@
 
 namespace SILISIZER {
 
-int Silisizer::silisize() {
+int Silisizer::silisize(int max_timer_iterations, int nb_concurent_paths,
+                        int nb_initial_concurent_changes,
+                        int nb_high_effort_concurent_changes) {
   sta::Network* network = this->network();
-  uint32_t timing_group_count = 10;
-  uint32_t end_point_count = 10;
-  uint32_t concurent_replace_count = 3;
+  uint32_t timing_group_count = nb_concurent_paths;
+  uint32_t end_point_count = nb_concurent_paths;
+  uint32_t concurent_replace_count = nb_initial_concurent_changes;
   bool debug = 0;
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
   if (transforms.good()) {
@@ -168,14 +170,14 @@ int Silisizer::silisize() {
     }
     loopCount++;
     if (loopCount > 10) {
-      concurent_replace_count = 50;
+      concurent_replace_count = nb_high_effort_concurent_changes / 4;
     }
     if (loopCount > 20) {
       timing_group_count = 5;
       end_point_count = 1;
-      concurent_replace_count = 50;
+      concurent_replace_count = nb_high_effort_concurent_changes;
     }
-    if (loopCount > 200) {
+    if (loopCount > max_timer_iterations) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       transforms.close();
