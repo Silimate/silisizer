@@ -38,6 +38,7 @@ int Silisizer::silisize() {
     transforms << "Instance" << "," << "From cell" << ","
                << "To cell" << std::endl;
   }
+  int loopCount = 0;
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -58,6 +59,7 @@ int Silisizer::silisize() {
       break;
     }
     std::unordered_map<sta::Instance*, double> offendingInstCount;
+    if (debug) std::cout << "Retuned nb paths: " << ends.size() << std::endl;
 
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
@@ -92,6 +94,7 @@ int Silisizer::silisize() {
         // If it's not a speed0 cell, skip
         if (libcellname.find("_sp0_") == std::string::npos) {
           p.prevPath(this, p);
+          if (debug) std::cout << "Speed1 cell: " << libcellname << std::endl;
           continue;
         }
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
@@ -105,6 +108,9 @@ int Silisizer::silisize() {
         p.prevPath(this, p);
       }
     }
+    if (debug)
+      std::cout << "offendingInstCount: " << offendingInstCount.size()
+                << std::endl;
     if (offendingInstCount.empty()) {
       std::cout << "Timing optimization done!" << std::endl;
       break;
@@ -127,7 +133,7 @@ int Silisizer::silisize() {
         }
       }
     }
-
+    if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
     if (offenders.empty()) {
       std::cout << "Timing optimization done!" << std::endl;
       break;
@@ -159,6 +165,21 @@ int Silisizer::silisize() {
       if (transforms.good())
         transforms << network->name(offender) << "," << from_cell_name << ","
                    << to_cell_name << std::endl;
+    }
+    loopCount++;
+    if (loopCount > 10) {
+      concurent_replace_count = 50;
+    }
+    if (loopCount > 20) {
+      timing_group_count = 5;
+      end_point_count = 1;
+      concurent_replace_count = 50;
+    }
+    if (loopCount > 200) {
+      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
+      std::cout << "Timing optimization done!" << std::endl;
+      transforms.close();
+      return 0;
     }
   }
   transforms.close();
