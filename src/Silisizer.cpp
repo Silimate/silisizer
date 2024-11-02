@@ -49,7 +49,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     sta::PathEndSeq ends = sta_->findPathEnds(
         /*exception from*/ nullptr, /*exception through*/ nullptr,
         /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
-        sta::MinMaxAll::max(),
+        sta::MinMaxAll::all(),
         /*group_count*/ timing_group_count, /*endpoint_count*/ end_point_count,
         /*unique_pins*/ true,
         /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
@@ -68,7 +68,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     if (debug) std::cout << "Retuned nb paths: " << ends.size() << std::endl;
     double wns = 0.0f;
     bool fixableWnsPath = false;
-    sta::PathEnd* wnsPath = nullptr;
+    sta::PathEnd* the_wnsPath = nullptr;
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
       sta::Pin* pin = path->pin(this);
@@ -78,12 +78,12 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       path->prevPath(this, p);
       float slack = pathend->slack(this);
       if (slack >= 0.0) continue;
-      bool wnsPath = false;
+      bool is_wnsPath = false;
       if (slack < wns) {
         fixableWnsPath = false;
-        wnsPath = true;
+        is_wnsPath = true;
         wns = slack;
-        wnsPath = pathend;
+        the_wnsPath = pathend;
       }
       while (!p.isNull()) {
         pin = p.pin(this);
@@ -117,7 +117,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         } else {
           offendingInstCount.find(inst)->second += delay;
         }
-        if (wnsPath) fixableWnsPath = true;
+        if (is_wnsPath) fixableWnsPath = true;
         if (debug)
           std::cout << " From: " << network->name(inst) << " / "
                     << network->name(pin) << std::endl;
@@ -128,23 +128,34 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "offendingInstCount: " << offendingInstCount.size()
                 << std::endl;
     if (offendingInstCount.empty()) {
-      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
+      std::cout << "Final WNS: " << "0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
     if (!fixableWnsPath) {
-      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
       std::cout << "WARNING: WNS Path does not contain any resizable cells!\n";
       sta::PathRef p;
-      sta::Path* path = wnsPath->path();
-      path->prevPath(this, p);
-      while (!p.isNull()) {
-        p.prevPath(this, p);
-        sta::Pin* pin = p.pin(this);
-        sta::Instance* inst = network->instance(pin);
-        std::cout << "WNS Path: " << network->name(inst) << std::endl;
+      if (the_wnsPath) {
+        sta::Path* path = the_wnsPath->path();
+        path->prevPath(this, p);
+        while (!p.isNull()) {
+          sta::Pin* pin = p.pin(this);
+          sta::Instance* inst = network->instance(pin);
+          sta::Cell* cell = network->cell(inst);
+          std::string libcellname;
+          if (cell) {
+            sta::LibertyCell* libcell = network->libertyCell(cell);
+            if (libcell) {
+              libcellname = libcell->name();
+            }
+          }
+          std::cout << "WNS Path: " << network->name(inst) << " ("
+                    << libcellname << ")" << std::endl;
+          p.prevPath(this, p);
+        }
       }
-      std::cout << "Timing optimization done!" << std::endl;
+      std::cout << "Timing optimization partially done!" << std::endl;
       break;
     }
     std::vector<std::pair<sta::Instance*, double>> offenders;
@@ -167,7 +178,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     }
     if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
     if (offenders.empty()) {
-      std::cout << "Final WNS: " << (wns * 1e12) << "ps" << std::endl;
+      std::cout << "Final WNS: " << "0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
@@ -191,7 +202,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
         std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
-        std::cout << "Timing optimization done!" << std::endl;
+        std::cout << "Timing optimization partially done!" << std::endl;
         transforms.close();
         return 0;
       }
@@ -232,14 +243,14 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                                  (fabs(previous_wns) * 1e12)) < 0.001)) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
       std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
-      std::cout << "Timing optimization done!" << std::endl;
+      std::cout << "Timing optimization partially done!" << std::endl;
       transforms.close();
       return 0;
     }
     if (loopCount > max_timer_iterations) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
       std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
-      std::cout << "Timing optimization done!" << std::endl;
+      std::cout << "Timing optimization partially done!" << std::endl;
       transforms.close();
       return 0;
     }
