@@ -18,6 +18,7 @@
 #include <cmath>
 #include <fstream>
 #include <iostream>
+#include <list>
 #include <regex>
 
 #include "sta/Liberty.hh"
@@ -55,6 +56,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
   int loopCount = 0;
   double previous_wns = 0.0f;
   bool max_effort = false;
+  double previousWNSDelta = 0.0f;
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -63,8 +65,8 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         sta::MinMaxAll::all(),
         /*group_count*/ timing_group_count, /*endpoint_count*/ end_point_count,
         /*unique_pins*/ true,
-        /* min_slack */ -1.0e+30, /*max_slack*/ 1.0e+30,
-        /*sort_by_slack*/ true,
+        /* min_slack */ -1.0e+30, /*max_slack*/ 0.0,
+        /*sort_by_slack*/ false,
         /*groups->size() ? groups :*/ nullptr,
         /*setup*/ true, /*hold*/ false,
         /*recovery*/ false, /*removal*/ false,
@@ -181,12 +183,12 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "Timing optimization partially done!" << std::endl;
       break;
     }
-    std::vector<std::pair<sta::Instance*, double>> offenders;
+    std::list<std::pair<sta::Instance*, double>> offenders;
     for (auto pair : offendingInstCount) {
       if (offenders.empty()) {
         offenders.push_back(std::pair(pair.first, pair.second));
       } else {
-        for (std::vector<std::pair<sta::Instance*, double>>::iterator itr =
+        for (std::list<std::pair<sta::Instance*, double>>::iterator itr =
                  offenders.begin();
              itr != offenders.end(); itr++) {
           if ((*itr).second < pair.second) {
@@ -256,16 +258,24 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "Increasing concurrent resizings to: "
                 << concurrent_replace_count << std::endl;
     }
+    double deltaWNS = fabs((fabs(wns) * 1e12) - (fabs(previous_wns) * 1e12));
+    if (loopCount > 1) {
+      std::cout << "Delta WNS: " << deltaWNS << "ps" << std::endl;
+    }
     if ((!max_effort) &&
-        (((loopCount == 20) ||
-          (fabs((fabs(wns) * 1e12)) - (fabs(previous_wns) * 1e12)) < 1.0))) {
+        (((loopCount == (max_timer_iterations / 2)) || (deltaWNS < 0.1)))) {
       timing_group_count *= 2;
       end_point_count *= 2;
       concurrent_replace_count = nb_high_effort_concurrent_changes;
       std::cout << "Analysing " << end_point_count << " paths" << std::endl;
       max_effort = true;
-    } else if ((max_effort) && ((fabs((fabs(wns) * 1e12)) -
-                                 (fabs(previous_wns) * 1e12)) < 1.0)) {
+    } else if ((max_effort) && (deltaWNS == 0.0) && (previousWNSDelta == 0.0)) {
+      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+      std::cout << "Timing optimization partially done!" << std::endl;
+      transforms.close();
+      return 0;
+    } else if ((max_effort) && (deltaWNS != 0.0) && (deltaWNS < 10.0)) {
       concurrent_replace_count *= 2;
       if (concurrent_replace_count > 10000) concurrent_replace_count = 10000;
       timing_group_count *= 2;
@@ -275,15 +285,10 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         end_point_count = 2000;
       }
       std::cout << "Analysing " << end_point_count << " paths" << std::endl;
-    } else if ((max_effort) && ((fabs((fabs(wns) * 1e12)) -
-                                 (fabs(previous_wns) * 1e12)) < 0.001)) {
-      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
-      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
-      std::cout << "Timing optimization partially done!" << std::endl;
-      transforms.close();
-      return 0;
     }
-    if (loopCount > max_timer_iterations) {
+    std::cout << "Iteration " << loopCount << " out of " << max_timer_iterations
+              << std::endl;
+    if (loopCount >= max_timer_iterations) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
       std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
       std::cout << "Timing optimization partially done!" << std::endl;
@@ -292,6 +297,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     }
     std::cout << "Current WNS: " << -(wns * 1e12) << "ps" << std::endl;
     previous_wns = wns;
+    previousWNSDelta = deltaWNS;
   }
   transforms.close();
   return 0;
