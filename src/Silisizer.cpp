@@ -28,6 +28,17 @@
 
 namespace SILISIZER {
 
+std::string replaceAll(std::string_view str, std::string_view from,
+                       std::string_view to) {
+  size_t start_pos = 0;
+  std::string result(str);
+  while ((start_pos = result.find(from, start_pos)) != std::string::npos) {
+    result.replace(start_pos, from.length(), to);
+    start_pos += to.length();  // Handles case where 'to' is a substr of 'from'
+  }
+  return result;
+}
+
 int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                         int nb_initial_concurrent_changes,
                         int nb_high_effort_concurrent_changes) {
@@ -38,7 +49,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
   bool debug = 0;
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
   if (transforms.good()) {
-    transforms << "Instance" << "," << "From cell" << ","
+    transforms << "Scope" << "," << "Instance" << "," << "From cell" << ","
                << "To cell" << std::endl;
   }
   int loopCount = 0;
@@ -74,8 +85,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       sta::Pin* pin = path->pin(this);
       if (debug)
         std::cout << "End Violation at: " << network->name(pin) << std::endl;
-      sta::PathRef p;
-      path->prevPath(this, p);
+      sta::PathRef p(path);
       float slack = pathend->slack(this);
       if (slack >= 0.0) continue;
       bool is_wnsPath = false;
@@ -128,17 +138,22 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "offendingInstCount: " << offendingInstCount.size()
                 << std::endl;
     if (offendingInstCount.empty()) {
-      std::cout << "Final WNS: " << "0ps" << std::endl;
-      std::cout << "Timing optimization done!" << std::endl;
+      if (wns == 0.0f) {
+        std::cout << "Final WNS: " << "0ps" << std::endl;
+        std::cout << "Timing optimization done!" << std::endl;
+      } else {
+        std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+        std::cout << "Timing optimization partially done!" << std::endl;
+      }
       break;
     }
     if (!fixableWnsPath) {
       std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
       std::cout << "WARNING: WNS Path does not contain any resizable cells!\n";
-      sta::PathRef p;
       if (the_wnsPath) {
         sta::Path* path = the_wnsPath->path();
-        path->prevPath(this, p);
+        sta::PathRef p(path);
+        std::set<std::string> reported;
         while (!p.isNull()) {
           sta::Pin* pin = p.pin(this);
           sta::Instance* inst = network->instance(pin);
@@ -150,8 +165,16 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
               libcellname = libcell->name();
             }
           }
-          std::cout << "WNS Path: " << network->name(inst) << " ("
-                    << libcellname << ")" << std::endl;
+          std::string cellname = network->name(inst);
+          cellname = replaceAll(cellname, "\\[", "[");
+          cellname = replaceAll(cellname, "\\]", "]");
+          cellname = replaceAll(cellname, "\\\\", "\\");
+          if (reported.find(cellname) == reported.end()) {
+            if (!cellname.empty())
+              std::cout << "WNS Path: " << cellname << " (" << libcellname
+                        << ")" << std::endl;
+            reported.insert(cellname);
+          }
           p.prevPath(this, p);
         }
       }
@@ -192,7 +215,19 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::string to_cell_name =
           std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
       // if (debug)
-      std::cout << "  Resizing instance " << network->name(offender)
+      std::string fullname;
+      sta::Instance* parent = network->parent(offender);
+      std::string parentcellname = network->cellName(parent);
+      while (parent) {
+        std::string parentName = network->name(parent);
+        if (!parentName.empty()) fullname += parentName + ".";
+        parent = network->parent(parent);
+      }
+      std::string cellname = network->name(offender);
+      cellname = replaceAll(cellname, "\\[", "[");
+      cellname = replaceAll(cellname, "\\]", "]");
+      cellname = replaceAll(cellname, "\\\\", "\\");
+      std::cout << "  Resizing instance " << fullname + cellname
                 << " of type: " << from_cell_name
                 << " to type: " << to_cell_name << std::endl;
       sta::LibertyCell* to_cell =
@@ -207,9 +242,10 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         return 0;
       }
       Sta::sta()->replaceCell(offender, to_cell);
-      if (transforms.good())
-        transforms << network->name(offender) << "," << from_cell_name << ","
-                   << to_cell_name << std::endl;
+      if (transforms.good()) {
+        transforms << "\"" << parentcellname << "\"" << "," << cellname << ","
+                   << from_cell_name << "," << to_cell_name << std::endl;
+      }
     }
     loopCount++;
     if ((!max_effort) && (loopCount == 10)) {
