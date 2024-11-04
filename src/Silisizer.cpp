@@ -41,6 +41,14 @@ std::string replaceAll(std::string_view str, std::string_view from,
   return result;
 }
 
+std::string reverseOpenSTAInternalNaming(std::string cellname) {
+  cellname = replaceAll(cellname, "\\[", "[");
+  cellname = replaceAll(cellname, "\\]", "]");
+  cellname = replaceAll(cellname, "\\/", "/");
+  cellname = replaceAll(cellname, "\\\\", "\\");
+  return cellname;
+}
+
 // Silisizer: resize operator-level cells to resolve timing violations
 int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                         int nb_initial_concurrent_changes,
@@ -58,13 +66,10 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                << "To cell" << std::endl;
   }
 
-  // Initialize loop variabless
+  // Initialize loop variables
   int loopCount = 0;
   double previous_wns = 0.0f;
   bool max_effort = false;
-  double previousWNSDelta = 0.0f;
-
-  // Resizer loop: resize until timing clean or give up
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -79,8 +84,8 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         /*setup*/ true, /*hold*/ false,
         /*recovery*/ false, /*removal*/ false,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
-    // If there are no paths, we are done
-    if (!ends.empty()) {
+    bool moreOptNeeded = !ends.empty();
+    if (!moreOptNeeded) {
       std::cout << "Final WNS: 0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
@@ -90,28 +95,32 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     double wns = 0.0f;
     bool fixableWnsPath = false;
     sta::PathEnd* the_wnsPath = nullptr;
-    // FIXME: (AKASH) From here down has zero comments, hard to read, please add!
+    // For each path with negative slack returned by sta_->findPathEnds
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
       sta::Pin* pin = path->pin(this);
       if (debug)
         std::cout << "End Violation at: " << network->name(pin) << std::endl;
       sta::PathRef p(path);
+      // Get the path slack
       float slack = pathend->slack(this);
       if (slack >= 0.0) continue;
       bool is_wnsPath = false;
       if (slack < wns) {
+        // Record the path with the Worst Negative Slack
         fixableWnsPath = false;
         is_wnsPath = true;
         wns = slack;
         the_wnsPath = pathend;
       }
+      // Follow the path arcs
       while (!p.isNull()) {
         pin = p.pin(this);
         sta::PathRef prev_path;
         sta::TimingArc* prev_arc = nullptr;
         p.prevPath(this, prev_path, prev_arc);
         sta::Delay delay = 0.0f;
+        // Get the arc delay
         if (prev_arc) delay = prev_arc->intrinsicDelay();
         sta::Instance* inst = network->instance(pin);
         sta::Cell* cell = network->cell(inst);
@@ -133,11 +142,14 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
           if (debug) std::cout << "Speed1 cell: " << libcellname << std::endl;
           continue;
         }
+        // Map instances found in all paths, record cumulative arc delay contribution for each instance accross all paths  
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
           offendingInstCount.emplace(inst, delay);
         } else {
           offendingInstCount.find(inst)->second += delay;
         }
+        // For the path with WNS, record if its "fixable", 
+        // meaning it has at least one slow cell candidate that can be swapped.
         if (is_wnsPath) fixableWnsPath = true;
         if (debug)
           std::cout << " From: " << network->name(inst) << " / "
@@ -150,15 +162,20 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                 << std::endl;
     if (offendingInstCount.empty()) {
       if (wns == 0.0f) {
+        // If there are no fixable cells at all and the wns is 0, we are done
         std::cout << "Final WNS: " << "0ps" << std::endl;
         std::cout << "Timing optimization done!" << std::endl;
       } else {
+        // If there are no fixable cells at all and the wns is non-0, then we have done all we can but we are still failing timing.
         std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
         std::cout << "Timing optimization partially done!" << std::endl;
       }
       break;
     }
     if (!fixableWnsPath) {
+      // If the path with WNS does not have any fixable cells, we have done all we can but we are still failing timing.
+      // We report the path for user review. It should be one of the paths in the final timing report, but since we report only one path 
+      // per end point, it might be a sligthly different path with the same WNS.
       std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
       std::cout << "WARNING: WNS Path does not contain any resizable cells!\n";
       if (the_wnsPath) {
@@ -176,10 +193,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
               libcellname = libcell->name();
             }
           }
-          std::string cellname = network->name(inst);
-          cellname = replaceAll(cellname, "\\[", "[");
-          cellname = replaceAll(cellname, "\\]", "]");
-          cellname = replaceAll(cellname, "\\\\", "\\");
+          std::string cellname = reverseOpenSTAInternalNaming(network->name(inst));
           if (reported.find(cellname) == reported.end()) {
             if (!cellname.empty())
               std::cout << "WNS Path: " << cellname << " (" << libcellname
@@ -192,6 +206,8 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "Timing optimization partially done!" << std::endl;
       break;
     }
+    // Sort top offenders, bound their numbers to concurrent_replace_count
+    // TODO: Use a heap for better runtime.
     std::list<std::pair<sta::Instance*, double>> offenders;
     for (auto pair : offendingInstCount) {
       if (offenders.empty()) {
@@ -211,21 +227,24 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       }
     }
     if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
+    // If no offending cells, we are done 
     if (offenders.empty()) {
       std::cout << "Final WNS: " << "0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
-
+    // For each offending cell
     for (auto offender_pair : offenders) {
       sta::Instance* offender = offender_pair.first;
       sta::Cell* cell = network->cell(offender);
       sta::LibertyLibrary* library = network->libertyLibrary(offender);
       sta::LibertyCell* libcell = network->libertyCell(cell);
+      // Get current speed0 model name
       std::string from_cell_name = libcell->name();
+      // Infer speed1 model name
       std::string to_cell_name =
           std::regex_replace(from_cell_name, std::regex("_sp0_"), "_sp1_");
-      // if (debug)
+      // Hierarchical parent module name
       std::string fullname;
       sta::Instance* parent = network->parent(offender);
       std::string parentcellname = network->cellName(parent);
@@ -234,17 +253,15 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         if (!parentName.empty()) fullname += parentName + ".";
         parent = network->parent(parent);
       }
-      std::string cellname = network->name(offender);
-      cellname = replaceAll(cellname, "\\[", "[");
-      cellname = replaceAll(cellname, "\\]", "]");
-      cellname = replaceAll(cellname, "\\\\", "\\");
+      std::string cellname = reverseOpenSTAInternalNaming(network->name(offender));
       std::cout << "  Resizing instance " << fullname + cellname
                 << " of type: " << from_cell_name
                 << " to type: " << to_cell_name << std::endl;
+      // Find the liberty speed1 cell
       sta::LibertyCell* to_cell =
           library->findLibertyCell(to_cell_name.c_str());
-
       if (!to_cell) {
+        // That should never happen since we create liberty cells for both speed grades
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
         std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
@@ -252,13 +269,16 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         transforms.close();
         return 0;
       }
+      // Replace the cell liberty model
       Sta::sta()->replaceCell(offender, to_cell);
+      // Record the transformation for back annotation in the folded model (unique module name/cell name)
       if (transforms.good()) {
         transforms << "\"" << parentcellname << "\"" << "," << cellname << ","
                    << from_cell_name << "," << to_cell_name << std::endl;
       }
     }
     loopCount++;
+    // Heuristic to increase the number of cells to replace in one loop
     if ((!max_effort) && (loopCount == 10)) {
       concurrent_replace_count = nb_high_effort_concurrent_changes / 4;
       if (concurrent_replace_count < 1) {
@@ -267,26 +287,26 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "Increasing concurrent resizings to: "
                 << concurrent_replace_count << std::endl;
     }
+    // Calculate the abs delta wns in between loops
     double deltaWNS = fabs((fabs(wns) * 1e12) - (fabs(previous_wns) * 1e12));
     if (loopCount > 1) {
       std::cout << "Delta WNS: " << deltaWNS << "ps" << std::endl;
     }
     if ((!max_effort) &&
         (((loopCount == (max_timer_iterations / 2)) || (deltaWNS < 0.1)))) {
+      // If we reach 1/2 the max loop count or the deltaWNS is less than 0.1ps, start increasing the number of paths analyzed,
       timing_group_count *= 2;
       end_point_count *= 2;
-      concurrent_replace_count = nb_high_effort_concurrent_changes;
       std::cout << "Analysing " << end_point_count << " paths" << std::endl;
+      // Increase the number of swap cells to maximum 
+      concurrent_replace_count = nb_high_effort_concurrent_changes;
+      // Turn on max_effort mode  
       max_effort = true;
-    } else if ((max_effort) && (deltaWNS == 0.0) && (previousWNSDelta == 0.0)) {
-      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
-      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
-      std::cout << "Timing optimization partially done!" << std::endl;
-      transforms.close();
-      return 0;
     } else if ((max_effort) && (deltaWNS != 0.0) && (deltaWNS < 10.0)) {
+      // If max_effort is on, and if deltaWNS < 10ps, then double the number of swap cells wirh a cap
       concurrent_replace_count *= 2;
-      if (concurrent_replace_count > 10000) concurrent_replace_count = 10000;
+      if (concurrent_replace_count > 1000) concurrent_replace_count = 1000;
+      // Increasing the number of paths analyzed, with a cap at 2000
       timing_group_count *= 2;
       if (timing_group_count > 2000) timing_group_count = 2000;
       end_point_count *= 2;
@@ -306,7 +326,6 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     }
     std::cout << "Current WNS: " << -(wns * 1e12) << "ps" << std::endl;
     previous_wns = wns;
-    previousWNSDelta = deltaWNS;
   }
   transforms.close();
   return 0;
