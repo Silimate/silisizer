@@ -120,8 +120,8 @@ if (USE_TCL_READLINE)
 endif()
 ################################################################
 
-add_subdirectory(OpenSTA)
-set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/OpenSTA)
+add_subdirectory(third_party/OpenSTA)
+set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/third_party/OpenSTA)
 
 set(SILISIZER_TCL_FILES
   src/Silisizer.tcl
@@ -157,10 +157,10 @@ target_include_directories(silisizer PUBLIC
   $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/OpenSTA/include>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/OpenSTA/include>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
-  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/OpenSTA>
+  $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/third_party/OpenSTA>
   $<INSTALL_INTERFACE:include>)
 target_include_directories(silisizer PUBLIC
   ${TCL_HEADER_DIR}

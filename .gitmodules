@@ -1,4 +1,3 @@
-[submodule "OpenSTA"]
-	path = OpenSTA
-	url = https://github.com/Silimate/OpenSTA.git
-# FIXME: (AKASH) This should use the SSH version! ^
+[submodule "third_party/OpenSTA"]
+	path = third_party/OpenSTA
+	url = git@github.com:Silimate/OpenSTA.git
