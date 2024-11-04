@@ -73,65 +73,51 @@ endif()
 
 ################################################################
 #
-# Locate TCL library.
+# Library dependencies
 #
-# Note that the cmake findTcl module is hopeless for OSX
-# because there doesn't appear to be a way to override
-# searching OSX system directories before unix directories.
+################################################################
 
-set(TCL_POSSIBLE_NAMES tcl87 tcl8.7
-  tcl86 tcl8.6
-  tcl85 tcl8.5
-  tcl84 tcl8.4
-  tcl83 tcl8.3
-  tcl82 tcl8.2
-  )
+# OSX tcl is deprecated and prints a warning, so look for a user installed
+# version before using the system version.
+# I tried to override the library search order instead but failed.
+# CMAKE_FIND_FRAMEWORK LAST bypasses the version in the framework directory
+# but not the one in /usr/lib.
+# This calls cmake/FindTCL.cmake
+# Do not use REQUIRED because it also requires TK, which is not used by OpenSTA.
+find_package(TCL)
 
-# tcl lib path guesses.
-if (NOT TCL_LIB_PATHS)
-  if (CMAKE_SYSTEM_NAME STREQUAL "Darwin")
-    set(TCL_LIB_PATHS /usr/local/lib)
-    set(TCL_NO_DEFAULT_PATH TRUE)
-  endif()
-elseif (CMAKE_SYSTEM_NAME STREQUAL "Linux")
-  set(TCL_LIB_PATHS /usr/lib
-    /usr/local/lib
+# Referenced by util/StaConfig.hh.cmake
+set(TCL_READLINE 0)
+# check for tclReadline
+if (USE_TCL_READLINE)
+  set(TCL_READLINE_POSSIBLE_NAMES
+    tclreadline-2.1.0
+    tclreadline-2.3.2
+    tclreadline-2.3.6
+    tclreadline-2.3.7
+    tclreadline-2.3.8
     )
-  set(TCL_NO_DEFAULT_PATH FALSE)
-endif()
-
-if (NOT TCL_LIB)
-  # bagbiter cmake doesn't have a way to pass NO_DEFAULT_PATH as a parameter.
-  if (TCL_NO_DEFAULT_PATH)
-    find_library(TCL_LIB
-      NAMES tcl ${TCL_POSSIBLE_NAMES}
-      PATHS ${TCL_LIB_PATHS}
-      NO_DEFAULT_PATH
-      )
+  find_library(TCL_READLINE_LIBRARY
+    NAMES tclreadline ${TCL_READLINE_POSSIBLE_NAMES}
+    PATHS ${TCL_LIB_PATHS}
+    )
+  if (TCL_READLINE_LIBRARY)
+    message(STATUS "TCL readline library: ${TCL_READLINE_LIBRARY}")
   else()
-    find_library(TCL_LIB
-      NAMES tcl ${TCL_POSSIBLE_NAMES}
-      PATHS ${TCL_LIB_PATHS}
-      )
+    message(STATUS "TCL readline library: NOT FOUND")
+  endif()
+
+  find_path(TCL_READLINE_INCLUDE tclreadline.h)
+  if (TCL_READLINE_INCLUDE)
+    message(STATUS "TCL readline header: ${TCL_READLINE_INCLUDE}/tclreadline.h")
+  else()
+    message(STATUS "TCL readline header: NOT FOUND")
+  endif()
+
+  if (TCL_READLINE_LIBRARY AND TCL_READLINE_INCLUDE)
+    set(TCL_READLINE 1)
   endif()
 endif()
-message(STATUS "TCL lib: ${TCL_LIB}")
-
-get_filename_component(TCL_LIB_DIR "${TCL_LIB}" PATH)
-get_filename_component(TCL_LIB_PARENT1 "${TCL_LIB_DIR}" PATH)
-get_filename_component(TCL_LIB_PARENT2 "${TCL_LIB_PARENT1}" PATH)
-
-# Locate tcl.h
-if (NOT TCL_HEADER)
-  find_file(TCL_HEADER tcl.h
-    PATHS ${TCL_LIB_PARENT1} ${TCL_LIB_PARENT2}
-    PATH_SUFFIXES include include/tcl
-    NO_DEFAULT_PATH
-    )
-endif()
-message(STATUS "TCL header: ${TCL_HEADER}")
-get_filename_component(TCL_HEADER_DIR "${TCL_HEADER}" PATH)
-message(STATUS "TCL header path: ${TCL_HEADER_DIR}")
 ################################################################
 
 add_subdirectory(OpenSTA)

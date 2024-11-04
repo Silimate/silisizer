@@ -29,6 +29,7 @@
 
 namespace SILISIZER {
 
+// Replace all occurrences of `from` in `str` with `to`
 std::string replaceAll(std::string_view str, std::string_view from,
                        std::string_view to) {
   size_t start_pos = 0;
@@ -40,6 +41,7 @@ std::string replaceAll(std::string_view str, std::string_view from,
   return result;
 }
 
+// Silisizer: resize operator-level cells to resolve timing violations
 int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
                         int nb_initial_concurrent_changes,
                         int nb_high_effort_concurrent_changes) {
@@ -48,15 +50,21 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
   uint32_t end_point_count = nb_concurrent_paths;
   uint32_t concurrent_replace_count = nb_initial_concurrent_changes;
   bool debug = 0;
+
+  // Output resized cells to CSV file to read back
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
   if (transforms.good()) {
     transforms << "Scope" << "," << "Instance" << "," << "From cell" << ","
                << "To cell" << std::endl;
   }
+
+  // Initialize loop variabless
   int loopCount = 0;
   double previous_wns = 0.0f;
   bool max_effort = false;
   double previousWNSDelta = 0.0f;
+
+  // Resizer loop: resize until timing clean or give up
   while (1) {
     std::cout << "  Timer is called..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -65,14 +73,14 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         sta::MinMaxAll::all(),
         /*group_count*/ timing_group_count, /*endpoint_count*/ end_point_count,
         /*unique_pins*/ true,
-        /* min_slack */ -1.0e+30, /*max_slack*/ 0.0,
+        /*min_slack*/ -1.0e+30, /*max_slack*/ 0.0,
         /*sort_by_slack*/ false,
         /*groups->size() ? groups :*/ nullptr,
         /*setup*/ true, /*hold*/ false,
         /*recovery*/ false, /*removal*/ false,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
-    bool moreOptNeeded = !ends.empty();
-    if (!moreOptNeeded) {
+    // If there are no paths, we are done
+    if (!ends.empty()) {
       std::cout << "Final WNS: 0ps" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
@@ -82,6 +90,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     double wns = 0.0f;
     bool fixableWnsPath = false;
     sta::PathEnd* the_wnsPath = nullptr;
+    // FIXME: (AKASH) From here down has zero comments, hard to read, please add!
     for (sta::PathEnd* pathend : ends) {
       sta::Path* path = pathend->path();
       sta::Pin* pin = path->pin(this);

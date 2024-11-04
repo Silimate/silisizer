@@ -18,9 +18,12 @@
 
 %inline %{
 
-extern int silisize(int max_timer_iterations = 200, 
-                    int nb_concurrent_paths = 10, 
-                    int nb_initial_concurrent_changes = 3,
-                    int nb_high_effort_concurrent_changes = 20);
+// Silisizer: resize operator-level cells to resolve timing violations
+extern int silisize(
+                    int max_timer_iterations = 200, // max tries
+                    int nb_concurrent_paths = 10,  // # of paths to analyze
+                    int nb_initial_concurrent_changes = 3, // init swap rate
+                    int nb_high_effort_concurrent_changes = 20 // max swap rate
+                    );
 
 %}
