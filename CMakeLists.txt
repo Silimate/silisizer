@@ -132,8 +132,8 @@ set(SILISIZER_SWIG_FILES
   )
 
 include(FindSWIG)
-add_custom_command(OUTPUT ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc
-  COMMAND ${SWIG_EXECUTABLE} -tcl8 -c++ -namespace -prefix sta -I${OPENSTA_HOME}/tcl -I${OPENSTA_HOME}/sdf -I${OPENSTA_HOME}/dcalc -I${OPENSTA_HOME}/parasitics -I${OPENSTA_HOME}/verilog -o ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc ${PROJECT_SOURCE_DIR}/src/Silisizer.i
+add_custom_command(OUTPUT ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
+  COMMAND ${SWIG_EXECUTABLE} -tcl8 -c++ -namespace -prefix sta -I${OPENSTA_HOME}/tcl -I${OPENSTA_HOME}/sdf -I${OPENSTA_HOME}/dcalc -I${OPENSTA_HOME}/parasitics -I${OPENSTA_HOME}/verilog -o ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc ${PROJECT_SOURCE_DIR}/src/Silisizer.i
   WORKING_DIRECTORY ${OPENSTA_HOME}
   DEPENDS ${SILISIZER_SWIG_FILES}
   )
@@ -144,7 +144,7 @@ endif()
 
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
-  ${PROJECT_SOURCE_DIR}/Silisizer_wrap.cc)
+  ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc)
 
 
 add_library(silisizer ${silisizer_SRC})
