@@ -146,7 +146,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
           offendingInstCount.emplace(inst, delay);
         } else {
-          offendingInstCount.find(inst)->second += delay * (delay + 1);
+          offendingInstCount.find(inst)->second += delay*delay;
         }
         // For the path with WNS, record if its "fixable", 
         // meaning it has at least one slow cell candidate that can be swapped.
