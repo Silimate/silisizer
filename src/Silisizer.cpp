@@ -87,7 +87,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
     bool moreOptNeeded = !ends.empty();
     if (!moreOptNeeded) {
-      std::cout << "Final WNS: 0ps" << std::endl;
+      std::cout << "Final WNS: 0" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
@@ -165,12 +165,12 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     if (offendingInstCount.empty()) {
       if (wns == 0.0f) {
         // If there are no fixable cells at all and the wns is 0, we are done
-        std::cout << "Final WNS: " << "0ps" << std::endl;
+        std::cout << "Final WNS: " << "0" << std::endl;
         std::cout << "Timing optimization done!" << std::endl;
       } else {
         // If there are no fixable cells at all and the wns is non-0, then we
         // have done all we can but we are still failing timing.
-        std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+        std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
         std::cout << "Timing optimization partially done!" << std::endl;
       }
       break;
@@ -181,7 +181,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       // review. It should be one of the paths in the final timing report, but
       // since we report only one path per end point, it might be a sligthly
       // different path with the same WNS.
-      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
       std::cout << "WARNING: WNS Path does not contain any resizable cells!\n";
       if (the_wnsPath) {
         sta::Path* path = the_wnsPath->path();
@@ -235,7 +235,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
     // If no offending cells, we are done
     if (offenders.empty()) {
-      std::cout << "Final WNS: " << "0ps" << std::endl;
+      std::cout << "Final WNS: " << "0" << std::endl;
       std::cout << "Timing optimization done!" << std::endl;
       break;
     }
@@ -272,7 +272,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         // grades
         std::cout << "WARNING: Missing cell model: " << to_cell_name
                   << std::endl;
-        std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+        std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
         std::cout << "Timing optimization partially done!" << std::endl;
         transforms.close();
         return 0;
@@ -299,7 +299,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     // Calculate the abs delta wns in between loops
     double deltaWNS = fabs((fabs(wns) * 1e12) - (fabs(previous_wns) * 1e12));
     if (loopCount > 1) {
-      std::cout << "Delta WNS: " << deltaWNS << "ps" << std::endl;
+      std::cout << "Delta WNS: " << deltaWNS << std::endl;
     }
     if ((!max_effort) &&
         (((loopCount == (max_timer_iterations / 2)) || (deltaWNS < 0.1)))) {
@@ -330,12 +330,12 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
               << std::endl;
     if (loopCount >= max_timer_iterations) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
-      std::cout << "Final WNS: " << -(wns * 1e12) << "ps" << std::endl;
+      std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
       std::cout << "Timing optimization partially done!" << std::endl;
       transforms.close();
       return 0;
     }
-    std::cout << "Current WNS: " << -(wns * 1e12) << "ps" << std::endl;
+    std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
     previous_wns = wns;
   }
   transforms.close();
