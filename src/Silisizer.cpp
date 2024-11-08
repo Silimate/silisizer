@@ -142,11 +142,11 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
           if (debug) std::cout << "Speed1 cell: " << libcellname << std::endl;
           continue;
         }
-        // Map instances found in all paths, record cumulative arc delay contribution for each instance accross all paths  
+        // Map instances found in all paths, record (weighted) cumulative arc delay contribution for each instance accross all paths  
         if (offendingInstCount.find(inst) == offendingInstCount.end()) {
           offendingInstCount.emplace(inst, delay);
         } else {
-          offendingInstCount.find(inst)->second += delay;
+          offendingInstCount.find(inst)->second += delay * (delay + 1);
         }
         // For the path with WNS, record if its "fixable", 
         // meaning it has at least one slow cell candidate that can be swapped.
