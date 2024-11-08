@@ -50,10 +50,11 @@ static Silisizer *sizer = nullptr;
 
 int silisize(int max_timer_iterations = 200, int nb_concurrent_paths = 10,
              int nb_initial_concurrent_changes = 3,
-             int nb_high_effort_concurrent_changes = 20) {
-  return sizer->silisize(max_timer_iterations, nb_concurrent_paths,
-                         nb_initial_concurrent_changes,
-                         nb_high_effort_concurrent_changes);
+             int nb_high_effort_concurrent_changes = 20,
+             double arc_weight_exponent = 1.0) {
+  return sizer->silisize(
+      max_timer_iterations, nb_concurrent_paths, nb_initial_concurrent_changes,
+      nb_high_effort_concurrent_changes, arc_weight_exponent);
 }
 
 int main(int argc, char *argv[]) {

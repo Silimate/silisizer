@@ -23,6 +23,7 @@ class Silisizer : public sta::Sta {
   ~Silisizer() {}
   int silisize(int max_timer_iterations = 200, int nb_concurrent_paths = 10,
                int nb_initial_concurrent_changes = 3,
-               int nb_high_effort_concurrent_changes = 20);
+               int nb_high_effort_concurrent_changes = 20,
+               double arc_weight_exponent = 1.0);
 };
 }  // namespace SILISIZER
