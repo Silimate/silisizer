@@ -20,11 +20,12 @@
 
 // Silisizer: resize operator-level cells to resolve timing violations
 extern int silisize(
-                    int max_timer_iterations = 200, // max tries
-                    int nb_concurrent_paths = 10,  // # of paths to analyze
-                    int nb_initial_concurrent_changes = 3, // init swap rate
-                    int nb_high_effort_concurrent_changes = 20, // max swap rate
-                    double arc_weight_exponent = 1.0 // nb_occur * (arc_timing ^ arc_weight_exponent)
+                    int max_iter = 200,
+                    int paths_per_group = 100,
+                    int paths_per_endpoint = 1,
+                    int min_swaps_per_iter = 3,
+                    int max_swaps_per_iter = 20,
+                    double arc_weight_exponent = 1.0 // nb_occur * (arc_delay**arc_weight_exponent)
                     );
 
 %}

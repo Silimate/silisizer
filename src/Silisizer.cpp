@@ -41,6 +41,7 @@ std::string replaceAll(std::string_view str, std::string_view from,
   return result;
 }
 
+// Reverse the internal naming convention used by OpenSTA for readback
 std::string reverseOpenSTAInternalNaming(std::string cellname) {
   cellname = replaceAll(cellname, "\\[", "[");
   cellname = replaceAll(cellname, "\\]", "]");
@@ -50,14 +51,13 @@ std::string reverseOpenSTAInternalNaming(std::string cellname) {
 }
 
 // Silisizer: resize operator-level cells to resolve timing violations
-int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
-                        int nb_initial_concurrent_changes,
-                        int nb_high_effort_concurrent_changes,
+int Silisizer::silisize(int max_iter,
+                        int paths_per_group,
+                        int paths_per_endpoint,
+                        int min_swaps_per_iter,
+                        int max_swaps_per_iter,
                         double arc_weight_exponent) {
   sta::Network* network = this->network();
-  uint32_t timing_group_count = nb_concurrent_paths;
-  uint32_t end_point_count = nb_concurrent_paths;
-  uint32_t concurrent_replace_count = nb_initial_concurrent_changes;
   bool debug = 0;
 
   // Output resized cells to CSV file to read back
@@ -77,7 +77,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
         /*exception from*/ nullptr, /*exception through*/ nullptr,
         /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
         sta::MinMaxAll::all(),
-        /*group_count*/ timing_group_count, /*endpoint_count*/ end_point_count,
+        /*group_count*/ paths_per_group, /*endpoint_count*/ paths_per_endpoint,
         /*unique_pins*/ true,
         /*min_slack*/ -1.0e+30, /*max_slack*/ 0.0,
         /*sort_by_slack*/ false,
@@ -289,7 +289,7 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
     loopCount++;
     // Heuristic to increase the number of cells to replace in one loop
     if ((!max_effort) && (loopCount == 10)) {
-      concurrent_replace_count = nb_high_effort_concurrent_changes / 4;
+      concurrent_replace_count = max_swaps_per_iter / 4;
       if (concurrent_replace_count < 1) {
         concurrent_replace_count = 1;
       }
@@ -302,14 +302,14 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       std::cout << "Delta WNS: " << deltaWNS << std::endl;
     }
     if ((!max_effort) &&
-        (((loopCount == (max_timer_iterations / 2)) || (deltaWNS < 0.1)))) {
+        (((loopCount == (max_iter / 2)) || (deltaWNS < 0.1)))) {
       // If we reach 1/2 the max loop count or the deltaWNS is less than 0.1ps,
       // start increasing the number of paths analyzed,
       timing_group_count *= 2;
       end_point_count *= 2;
       std::cout << "Analysing " << end_point_count << " paths" << std::endl;
       // Increase the number of swap cells to maximum
-      concurrent_replace_count = nb_high_effort_concurrent_changes;
+      concurrent_replace_count = max_swaps_per_iter;
       // Turn on max_effort mode
       max_effort = true;
     } else if ((max_effort) && (deltaWNS != 0.0) && (deltaWNS < 10.0)) {
@@ -326,9 +326,9 @@ int Silisizer::silisize(int max_timer_iterations, int nb_concurrent_paths,
       }
       std::cout << "Analysing " << end_point_count << " paths" << std::endl;
     }
-    std::cout << "Iteration " << loopCount << " out of " << max_timer_iterations
+    std::cout << "Iteration " << loopCount << " out of " << max_iter
               << std::endl;
-    if (loopCount >= max_timer_iterations) {
+    if (loopCount >= max_iter) {
       std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
       std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
       std::cout << "Timing optimization partially done!" << std::endl;

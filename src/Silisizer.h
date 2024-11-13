@@ -21,9 +21,11 @@ namespace SILISIZER {
 class Silisizer : public sta::Sta {
  public:
   ~Silisizer() {}
-  int silisize(int max_timer_iterations = 200, int nb_concurrent_paths = 10,
-               int nb_initial_concurrent_changes = 3,
-               int nb_high_effort_concurrent_changes = 20,
+  int silisize(int max_iter = 200,
+               int paths_per_group = 100,
+               int paths_per_endpoint = 1,
+               int min_swaps_per_iter = 3,
+               int max_swaps_per_iter = 20,
                double arc_weight_exponent = 1.0);
 };
 }  // namespace SILISIZER
