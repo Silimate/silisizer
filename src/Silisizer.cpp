@@ -292,8 +292,8 @@ int Silisizer::silisize(int max_iter,
       }
       std::string cellname = reverseOpenSTANaming(network->name(offender));
       std::cout << "Resizing instance " << fullname + cellname
-                << " of type: " << sp0_name
-                << " to type: " << sp1_name << std::endl;
+                << " of type " << sp0_name
+                << " to type " << sp1_name << std::endl;
       // Find the corresponding speed 1 Liberty cell
       sta::LibertyCell* to_cell = library->findLibertyCell(sp1_name.c_str());
       if (!to_cell) {
