@@ -139,10 +139,10 @@ int Silisizer::silisize(int max_iter,
       if (slack >= 0.0) continue;
 
       // Record the path with the worst negative slack (WNS)
-      bool is_wnsPath = false;
+      bool is_wns_path = false;
       if (slack < wns) {
         fixable_wns_path = false;
-        is_wnsPath = true;
+        is_wns_path = true;
         wns = slack;
         wns_pathend = pathend;
       }
@@ -181,7 +181,7 @@ int Silisizer::silisize(int max_iter,
         }
         // For the path with WNS, record if its "fixable",
         // meaning it has at least one slow cell candidate that can be swapped
-        if (is_wnsPath) fixable_wns_path = true;
+        if (is_wns_path) fixable_wns_path = true;
         // DEBUG: Print the offending instance
         if (debug)
           std::cout << "From: " << network->name(inst) << " / "
