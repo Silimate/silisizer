@@ -1,4 +1,4 @@
-// Silisizer, Operator sizer
+// Silisizer: resize operator-level cells to resolve timing violations
 // Copyright (c) 2024, Silimate Inc.
 //
 // This program is free software: you can redistribute it and/or modify
@@ -22,10 +22,10 @@ class Silisizer : public sta::Sta {
  public:
   ~Silisizer() {}
   int silisize(int max_iter = 200,
-               int paths_per_group = 100,
-               int paths_per_endpoint = 1,
+               int min_paths_per_group = 100,
+               int max_paths_per_group = 2000,
                int min_swaps_per_iter = 3,
                int max_swaps_per_iter = 20,
-               double arc_weight_exponent = 1.0);
+               double arc_weight_exp = 1.0);
 };
 }  // namespace SILISIZER
