@@ -320,7 +320,7 @@ int Silisizer::silisize(int max_iter,
       std::cout << "Delta WNS: " << (wns - previous_wns) * 1e12 << std::endl;
 
     // Print the current iteration and WNS
-    std::cout << "Iteration " << cur_iter << " of " << max_iter << std::endl;
+    std::cout << "Iter " << cur_iter + 1 << " of " << max_iter << std::endl;
     std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
 
     // If we are here at the last iteration, we were unable to meet timing
