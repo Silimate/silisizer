@@ -55,7 +55,8 @@ int Silisizer::silisize(int max_iter,
                         int max_paths_per_group,
                         int min_swaps_per_iter,
                         int max_swaps_per_iter,
-                        double arc_weight_exp) {
+                        double delay_weight_exp,
+                        double slack_weight_exp) {
   // Initialize
   sta::Network* network = this->network();
   int paths_per_group = min_paths_per_group;
@@ -79,7 +80,8 @@ int Silisizer::silisize(int max_iter,
       swaps_per_iter = min_swaps_per_iter;
     }
     // Second 1/3 of iterations: exponentially increasing effort
-    // x_n = min(2x_{n-1} - x_0 + 1, xmax)
+    //    x_n = min(2x_{n-1} - x_0 + 1, xmax) [RECURRENCE RELATION]
+    // => x_n = min(2^n + x_0 - 1, xmax)      [CLOSED FORM SOLUTION]
     else if (cur_iter < (2 * max_iter / 3)) {
       paths_per_group = paths_per_group * 2 - min_paths_per_group + 1;
       paths_per_group = std::min(paths_per_group, max_paths_per_group);
@@ -119,7 +121,7 @@ int Silisizer::silisize(int max_iter,
       std::cout << "Violating path count: " << ends.size() << std::endl;
 
     // Initialize variables
-    std::unordered_map<sta::Instance*, double> offending_inst_cnt;
+    std::unordered_map<sta::Instance*, double> offending_inst_score;
     double wns = 0.0f;
     bool fixable_wns_path = false;
     sta::PathEnd* wns_pathend = nullptr;
@@ -174,10 +176,12 @@ int Silisizer::silisize(int max_iter,
         }
         // Map instances found in all paths, record cumulative arc delay
         // contribution for each instance accross all paths
-        if (offending_inst_cnt.find(inst) == offending_inst_cnt.end()) {
-          offending_inst_cnt.emplace(inst, pow(delay, arc_weight_exp));
+        float delta_score = pow(delay, delay_weight_exp);
+        delta_score *= pow(fabs(slack), slack_weight_exp);
+        if (offending_inst_score.find(inst) == offending_inst_score.end()) {
+          offending_inst_score.emplace(inst, delta_score);
         } else {
-          offending_inst_cnt.find(inst)->second += pow(delay, arc_weight_exp);
+          offending_inst_score.find(inst)->second += delta_score;
         }
         // For the path with WNS, record if its "fixable",
         // meaning it has at least one slow cell candidate that can be swapped
@@ -191,11 +195,11 @@ int Silisizer::silisize(int max_iter,
 
     // DEBUG: Print the number of offending instances
     if (debug)
-      std::cout << "offending_inst_cnt: " << offending_inst_cnt.size()
+      std::cout << "offending_inst_score: " << offending_inst_score.size()
                 << std::endl;
 
     // Check if there is nothing left to do
-    if (offending_inst_cnt.empty()) {
+    if (offending_inst_score.empty()) {
       // If there are no fixable cells at all and the WNS is zero, we are done
       if (wns == 0.0f) {
         std::cout << "Final WNS: 0" << std::endl;
@@ -254,7 +258,7 @@ int Silisizer::silisize(int max_iter,
 
     // Sort top offender list and allow max list size of swaps_per_iter
     std::list<std::pair<sta::Instance*, double>> offenders;
-    for (const auto& pair : offending_inst_cnt)
+    for (const auto& pair : offending_inst_score)
       offenders.push_back(pair);
     offenders.sort([](const std::pair<sta::Instance*, double>& a,
                       const std::pair<sta::Instance*, double>& b) {
