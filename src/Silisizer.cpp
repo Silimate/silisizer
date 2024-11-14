@@ -60,7 +60,7 @@ int Silisizer::silisize(int max_iter,
   sta::Network* network = this->network();
   int paths_per_group = min_paths_per_group;
   int swaps_per_iter = min_swaps_per_iter;
-  bool debug = 1;
+  bool debug = 0;
 
   // Output the header for back-annotation CSV
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
