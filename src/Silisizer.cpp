@@ -57,11 +57,20 @@ int Silisizer::silisize(int max_iter,
                         int max_swaps_per_iter,
                         double delay_weight_exp,
                         double slack_weight_exp) {
-  // Initialize
+  // DEBUG
+  const bool DEBUG = 1;
+  
+  // Initialize network
   sta::Network* network = this->network();
+
+  // Effort variables (PI control)
   int paths_per_group = min_paths_per_group;
   int swaps_per_iter = min_swaps_per_iter;
-  bool debug = 0;
+  double effort = 0; // next_effort = effort + P * err + I * cum_err
+  double target_wns_frac_cum_err = 0; // next_cum_err = cum_err + err 
+  const double P = 1; // proportional gain (P multiplier)
+  const double I = 1 / max_iter; // integral gain (I multiplier)
+  const double TARGET_FINISH_ITER = max_iter * 0.5; // iter to try to finish by
 
   // Output the header for back-annotation CSV
   std::ofstream transforms("preqorsor/data/resized_cells.csv");
@@ -71,29 +80,8 @@ int Silisizer::silisize(int max_iter,
   }
 
   // Iterate until the maximum number of iterations is reached
-  double previous_wns = 0.0f;
+  double previous_wns = 1;
   for (int cur_iter = 0; cur_iter < max_iter; cur_iter++) {
-    // Set effort using a schedule
-    // First 1/3 of iterations: min effort
-    if (cur_iter < (max_iter / 3)) {
-      paths_per_group = min_paths_per_group;
-      swaps_per_iter = min_swaps_per_iter;
-    }
-    // Second 1/3 of iterations: exponentially increasing effort
-    //    x_n = min(2x_{n-1} - x_0 + 1, xmax) [RECURRENCE RELATION]
-    // => x_n = min(2^n + x_0 - 1, xmax)      [CLOSED FORM SOLUTION]
-    else if (cur_iter < (2 * max_iter / 3)) {
-      paths_per_group = paths_per_group * 2 - min_paths_per_group + 1;
-      paths_per_group = std::min(paths_per_group, max_paths_per_group);
-      swaps_per_iter = swaps_per_iter * 2 - min_swaps_per_iter + 1;
-      swaps_per_iter = std::min(swaps_per_iter, max_swaps_per_iter);
-    }
-    // Last 1/3 of iterations: max effort
-    else {
-      paths_per_group = max_paths_per_group;
-      swaps_per_iter = max_swaps_per_iter;
-    }
-
     // Run timer to get violating paths (one per endpoint)
     std::cout << "Running timer..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
@@ -117,7 +105,7 @@ int Silisizer::silisize(int max_iter,
     }
 
     // DEBUG: Print the number of paths found
-    if (debug)
+    if (DEBUG)
       std::cout << "Violating path count: " << ends.size() << std::endl;
 
     // Initialize variables
@@ -132,12 +120,12 @@ int Silisizer::silisize(int max_iter,
       sta::Path* path = pathend->path();
 
       // DEBUG: Print the endpoint
-      if (debug)
+      if (DEBUG)
         std::cout << "Violation endpoint: " << network->name(path->pin(this))
                   << std::endl;
       
       // Get the path slack
-      float slack = pathend->slack(this);
+      double slack = pathend->slack(this);
       if (slack >= 0.0) continue;
 
       // Record the path with the worst negative slack (WNS)
@@ -171,12 +159,12 @@ int Silisizer::silisize(int max_iter,
         // If cell is not speed 0, skip
         std::string libcellname = libcell->name();
         if (libcellname.find("_sp0_") == std::string::npos) {
-          if (debug) std::cout << "Speed 1 cell: " << libcellname << std::endl;
+          if (DEBUG) std::cout << "Speed 1 cell: " << libcellname << std::endl;
           continue;
         }
         // Map instances found in all paths, record cumulative arc delay
         // contribution for each instance accross all paths
-        float delta_score = pow(delay, delay_weight_exp);
+        double delta_score = pow(delay, delay_weight_exp);
         delta_score *= pow(fabs(slack), slack_weight_exp);
         if (offending_inst_score.find(inst) == offending_inst_score.end()) {
           offending_inst_score.emplace(inst, delta_score);
@@ -186,15 +174,16 @@ int Silisizer::silisize(int max_iter,
         // For the path with WNS, record if its "fixable",
         // meaning it has at least one slow cell candidate that can be swapped
         if (is_wns_path) fixable_wns_path = true;
-        // DEBUG: Print the offending instance
-        if (debug)
-          std::cout << "From: " << network->name(inst) << " / "
-                    << network->name(pin) << std::endl;
+        // // DEBUG: Print the offending instance
+        // if (DEBUG) std::cout << "From: " << network->name(pin) << std::endl;
       }
     }
 
+    // Set previous WNS to current if not initialized (-1)
+    if (previous_wns > 0) previous_wns = wns;
+
     // DEBUG: Print the number of offending instances
-    if (debug)
+    if (DEBUG)
       std::cout << "offending_inst_score: " << offending_inst_score.size()
                 << std::endl;
 
@@ -214,6 +203,8 @@ int Silisizer::silisize(int max_iter,
       break;
     }
 
+    std::cout << "Ignore: " << fixable_wns_path << (size_t) wns_pathend << std::endl;
+    /*
     // If the path with WNS does not have any fixable cells, we have done all
     // we can, but we are still failing timing. We report the path for user
     // review. It should be one of the paths in the final timing report, but
@@ -255,6 +246,7 @@ int Silisizer::silisize(int max_iter,
       std::cout << "Timing optimization partially done!" << std::endl;
       break;
     }
+    */
 
     // Sort top offender list and allow max list size of swaps_per_iter
     std::list<std::pair<sta::Instance*, double>> offenders;
@@ -267,7 +259,7 @@ int Silisizer::silisize(int max_iter,
     offenders.resize(std::min(swaps_per_iter, (int) offenders.size()));
 
     // DEBUG: Print the number of offenders
-    if (debug) std::cout << "offenders: " << offenders.size() << std::endl;
+    if (DEBUG) std::cout << "offenders: " << offenders.size() << std::endl;
 
     // If no offending cells, we are done
     if (offenders.empty()) {
@@ -319,13 +311,53 @@ int Silisizer::silisize(int max_iter,
       }
     }
 
+    // Get delta WNS and delta WNS fraction
+    double delta_wns = wns - previous_wns;
+    double delta_wns_frac = - delta_wns / previous_wns;
+
     // Print the abs delta WNS in between loops
-    if (cur_iter > 0)
-      std::cout << "Delta WNS: " << (wns - previous_wns) * 1e12 << std::endl;
+    if (cur_iter > 0) {
+      std::cout << "Delta WNS: " << delta_wns * 1e12 << std::endl;
+      std::cout << "Delta WNS frac: " << delta_wns_frac << std::endl;
+    }
+
+    // Set effort based on delta WNS
+    double iters_remaining = std::max(TARGET_FINISH_ITER - cur_iter, 1.0);
+    double target_wns_frac = 1 / iters_remaining;
+    double target_wns_frac_err = target_wns_frac - delta_wns_frac;
+    double delta_effort = P*target_wns_frac_err + I*target_wns_frac_cum_err;
+    target_wns_frac_cum_err += target_wns_frac_err;
+    effort = std::max(std::min(effort + delta_effort, 1.0), 0.0);
+    paths_per_group = effort * max_paths_per_group;
+    paths_per_group += (1 - effort) * min_paths_per_group;
+    paths_per_group = std::min(paths_per_group, max_paths_per_group);
+    swaps_per_iter = effort * max_swaps_per_iter;
+    swaps_per_iter += (1 - effort) * min_swaps_per_iter;
+    swaps_per_iter = std::min(swaps_per_iter, max_swaps_per_iter);
 
     // Print the current iteration and WNS
     std::cout << "Iter " << cur_iter + 1 << " of " << max_iter << std::endl;
     std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
+
+    // DEBUG: Print the current effort and corresponding variables
+    if (DEBUG) {
+      std::cout << "******************************" << std::endl;
+      std::cout << "Current iter: " << cur_iter << std::endl;
+      std::cout << "Target finish iter: " << TARGET_FINISH_ITER << std::endl;
+      std::cout << "Iters remaining: " << iters_remaining << std::endl;
+      std::cout << "------------------------------" << std::endl;
+      std::cout << "Previous WNS: " << -(previous_wns * 1e12) << std::endl;
+      std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
+      std::cout << "Delta WNS: " << delta_wns * 1e12 << std::endl;
+      std::cout << "Delta WNS frac: " << delta_wns_frac << std::endl;
+      std::cout << "Target WNS frac: " << target_wns_frac << std::endl;
+      std::cout << "Target WNS frac err: " << target_wns_frac_err << std::endl;
+      std::cout << "------------------------------" << std::endl;
+      std::cout << "Current effort: " << effort << std::endl;
+      std::cout << "Paths per group: " << paths_per_group << std::endl;
+      std::cout << "Swaps per iter: " << swaps_per_iter << std::endl;
+      std::cout << "******************************" << std::endl;
+    }
 
     // If we are here at the last iteration, we were unable to meet timing
     if (cur_iter == (max_iter - 1)) {
