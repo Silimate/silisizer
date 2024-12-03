@@ -111,7 +111,6 @@ int Silisizer::silisize(int max_iter,
     // Initialize variables
     std::unordered_map<sta::Instance*, double> offending_inst_score;
     double wns = 0.0f;
-    bool fixable_wns_path = false;
     sta::PathEnd* wns_pathend = nullptr;
 
     // For each path with negative slack
@@ -131,7 +130,6 @@ int Silisizer::silisize(int max_iter,
       // Record the path with the worst negative slack (WNS)
       bool is_wns_path = false;
       if (slack < wns) {
-        fixable_wns_path = false;
         is_wns_path = true;
         wns = slack;
         wns_pathend = pathend;
@@ -171,11 +169,6 @@ int Silisizer::silisize(int max_iter,
         } else {
           offending_inst_score.find(inst)->second += delta_score;
         }
-        // For the path with WNS, record if its "fixable",
-        // meaning it has at least one slow cell candidate that can be swapped
-        if (is_wns_path) fixable_wns_path = true;
-        // // DEBUG: Print the offending instance
-        // if (DEBUG) std::cout << "From: " << network->name(pin) << std::endl;
       }
     }
 
@@ -202,51 +195,6 @@ int Silisizer::silisize(int max_iter,
       }
       break;
     }
-
-    std::cout << "Ignore: " << fixable_wns_path << (size_t) wns_pathend << std::endl;
-    /*
-    // If the path with WNS does not have any fixable cells, we have done all
-    // we can, but we are still failing timing. We report the path for user
-    // review. It should be one of the paths in the final timing report, but
-    // since we report only one path per endpoint, it might be a slightly
-    // different path with the same WNS
-    if (!fixable_wns_path) {
-      // Display the final WNS and warn user
-      std::cout << "Final WNS: " << -(wns * 1e12) << std::endl
-                << "WARNING: WNS Path does not contain any resizable cells!"
-                << std::endl;
-      // Report WNS path for user review
-      if (wns_pathend) {
-        // Iterate through WNS path
-        std::set<std::string> reported; // avoid reporting same cell twice
-        sta::Path* wns_path = wns_pathend->path();
-        for (sta::PathRef p(wns_path); !p.isNull(); p.prevPath(this, p)) {
-          // Get instance and cell
-          sta::Instance* inst = network->instance(p.pin(this));
-          sta::Cell* cell = network->cell(inst);
-          // Get the Liberty cell name
-          std::string libcellname;
-          if (cell) {
-            sta::LibertyCell* libcell = network->libertyCell(cell);
-            if (libcell) {
-              libcellname = libcell->name();
-            }
-          }
-          // Get the cell name
-          std::string cellname = reverseOpenSTANaming(network->name(inst));
-          // If not previously reported, report the cell
-          if (reported.find(cellname) == reported.end()) {
-            if (!cellname.empty())
-              std::cout << "WNS Path: " << cellname << " (" << libcellname
-                        << ")" << std::endl;
-            reported.insert(cellname);
-          }
-        }
-      }
-      std::cout << "Timing optimization partially done!" << std::endl;
-      break;
-    }
-    */
 
     // Sort top offender list and allow max list size of swaps_per_iter
     std::list<std::pair<sta::Instance*, double>> offenders;
