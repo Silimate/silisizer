@@ -111,7 +111,6 @@ int Silisizer::silisize(int max_iter,
     // Initialize variables
     std::unordered_map<sta::Instance*, double> offending_inst_score;
     double wns = 0.0f;
-    sta::PathEnd* wns_pathend = nullptr;
 
     // For each path with negative slack
     for (sta::PathEnd* pathend : ends) {
@@ -128,11 +127,8 @@ int Silisizer::silisize(int max_iter,
       if (slack >= 0.0) continue;
 
       // Record the path with the worst negative slack (WNS)
-      bool is_wns_path = false;
       if (slack < wns) {
-        is_wns_path = true;
         wns = slack;
-        wns_pathend = pathend;
       }
 
       // Follow the path backwards to populate offending instance count
