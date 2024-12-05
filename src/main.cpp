@@ -20,7 +20,7 @@
 
 #include "Silisizer.h"
 #include "sta/StaMain.hh"
-
+#include "backward.hpp"
 using namespace SILISIZER;
 static int silisizerTclAppInit(Tcl_Interp *interp);
 
@@ -62,6 +62,7 @@ int silisize(int max_iter = 200,
 }
 
 int main(int argc, char *argv[]) {
+  backward::SignalHandling sh;
   sizer = new Silisizer();
   sta::initSta();
   sta::Sta::setSta(sizer);

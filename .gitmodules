@@ -1,3 +1,6 @@
 [submodule "third_party/OpenSTA"]
 	path = third_party/OpenSTA
 	url = git@github.com:Silimate/OpenSTA.git
+[submodule "third_party/backward-cpp"]
+	path = third_party/backward-cpp
+	url = git@github.com:bombela/backward-cpp.git
