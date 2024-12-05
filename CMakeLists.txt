@@ -67,7 +67,7 @@ else()
       "${CMAKE_CXX_FLAGS_DEBUG} -Wall -g ${MSYS_COMPILE_OPTIONS} ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
   )
   set(CMAKE_CXX_FLAGS_RELEASE
-      "${CMAKE_CXX_FLAGS_RELEASE} -Wall -O3 ${MSYS_COMPILE_OPTIONS} -DNDEBUG ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
+      "${CMAKE_CXX_FLAGS_RELEASE} -Wall -O3 -g ${MSYS_COMPILE_OPTIONS} -DNDEBUG ${MY_CXX_WARNING_FLAGS} ${MEM_SANITIZER_FLAGS}"
   )
 endif()
 
@@ -123,6 +123,8 @@ endif()
 add_subdirectory(third_party/OpenSTA)
 set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/third_party/OpenSTA)
 
+add_subdirectory(third_party/backward-cpp)
+
 set(SILISIZER_TCL_FILES
   src/Silisizer.tcl
   )
@@ -144,7 +146,8 @@ endif()
 
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
-  ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc)
+  ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
+  ${PROJECT_SOURCE_DIR}/third_party/backward-cpp/backward.cpp)
 
 
 add_library(silisizer ${silisizer_SRC})
@@ -181,6 +184,7 @@ if (UNIX)
   target_link_libraries(silisizer PRIVATE util)
   target_link_libraries(silisizer PRIVATE m)
   target_link_libraries(silisizer PRIVATE pthread)
+  target_link_libraries(silisizer PUBLIC Backward::Interface)
 endif()
 
 
