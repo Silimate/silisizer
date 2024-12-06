@@ -21,6 +21,8 @@
 #include "Silisizer.h"
 #include "sta/StaMain.hh"
 #include "backward.hpp"
+#include <csignal>
+
 using namespace SILISIZER;
 static int silisizerTclAppInit(Tcl_Interp *interp);
 
@@ -61,8 +63,18 @@ int silisize(int max_iter = 200,
       delay_weight_exp, slack_weight_exp);
 }
 
+// Flush stdout/stderr 
+void signalHandler(int signo) {
+  fflush(stderr);
+  fflush(stdout);
+  throw std::abort;
+}
+
 int main(int argc, char *argv[]) {
   backward::SignalHandling sh;
+  signal(SIGSEGV, signalHandler);
+  signal(SIGFPE, signalHandler);
+  signal(SIGINT, signalHandler);
   sizer = new Silisizer();
   sta::initSta();
   sta::Sta::setSta(sizer);
