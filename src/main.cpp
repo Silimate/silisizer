@@ -75,6 +75,7 @@ int main(int argc, char *argv[]) {
   signal(SIGSEGV, signalHandler);
   signal(SIGFPE, signalHandler);
   signal(SIGINT, signalHandler);
+  signal(SIGABRT, signalHandler);
   sizer = new Silisizer();
   sta::initSta();
   sta::Sta::setSta(sizer);
