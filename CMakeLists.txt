@@ -123,6 +123,8 @@ endif()
 add_subdirectory(third_party/OpenSTA)
 set(OPENSTA_HOME ${PROJECT_SOURCE_DIR}/third_party/OpenSTA)
 
+set (STACK_DETAILS_AUTO_DETECT FALSE CACHE BOOL "Auto detect backward's stack details dependencies")
+
 add_subdirectory(third_party/backward-cpp)
 
 set(SILISIZER_TCL_FILES
