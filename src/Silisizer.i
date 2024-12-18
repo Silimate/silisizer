@@ -28,4 +28,7 @@ extern int silisize(
                     double slack_weight_exp = 1.0
                     );
 
+extern void test_abrt();
+extern void test_segv();
+
 %}
