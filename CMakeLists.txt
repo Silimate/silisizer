@@ -37,7 +37,7 @@ endif()
 
 set(WITH_STATIC_CRT OFF CACHE BOOL "Use Static CRT")
 
-set(CMAKE_CXX_FLAGS "-Wno-unused-function -Werror ${CMAKE_CXX_FLAGS} ${MY_CXX_WARNING_FLAGS}")
+set(CMAKE_CXX_FLAGS "-Werror -Wno-unused-function -Wsign-compare ${CMAKE_CXX_FLAGS} ${MY_CXX_WARNING_FLAGS}")
 
 if(MSVC)
   add_compile_definitions(_CRT_NONSTDC_NO_WARNINGS)
