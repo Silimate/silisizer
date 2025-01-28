@@ -50,7 +50,8 @@ std::string reverseOpenSTANaming(std::string cellname) {
 }
 
 // Silisizer: resize operator-level cells to resolve timing violations
-int Silisizer::silisize(int max_iter,
+int Silisizer::silisize(const char *workdir,
+                        int max_iter,
                         int min_paths_per_group,
                         int max_paths_per_group,
                         int min_swaps_per_iter,
@@ -73,7 +74,8 @@ int Silisizer::silisize(int max_iter,
   const double TARGET_FINISH_ITER = max_iter * 0.5; // iter to try to finish by
 
   // Output the header for back-annotation CSV
-  std::ofstream transforms("preqorsor/data/resized_cells.csv");
+  std::string workdir_str = workdir;
+  std::ofstream transforms(workdir_str + "/data/resized_cells.csv");
   if (transforms.good()) {
     transforms << "Scope" << "," << "Instance" << "," << "From cell" << ","
                << "To cell" << std::endl;

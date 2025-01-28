@@ -50,7 +50,8 @@ static int silisizer_argc;
 static char **silisizer_argv;
 static Silisizer *sizer = nullptr;
 
-int silisize(int max_iter = 200,
+int silisize(const char *workdir,
+             int max_iter = 200,
              int min_paths_per_group = 100,
              int max_paths_per_group = 2000,
              int min_swaps_per_iter = 3,
@@ -58,6 +59,7 @@ int silisize(int max_iter = 200,
              double delay_weight_exp = 1.0,
              double slack_weight_exp = 1.0) {
   return sizer->silisize(
+      workdir,
       max_iter, min_paths_per_group, max_paths_per_group,
       min_swaps_per_iter, max_swaps_per_iter,
       delay_weight_exp, slack_weight_exp);

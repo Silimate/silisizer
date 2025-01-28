@@ -21,7 +21,8 @@ namespace SILISIZER {
 class Silisizer : public sta::Sta {
  public:
   ~Silisizer() {}
-  int silisize(int max_iter = 200,
+  int silisize(const char *workdir,
+               int max_iter = 200,
                int min_paths_per_group = 100,
                int max_paths_per_group = 2000,
                int min_swaps_per_iter = 3,

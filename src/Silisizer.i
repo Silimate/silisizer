@@ -19,6 +19,7 @@
 %inline %{
 
 extern int silisize(
+                    const char *workdir,
                     int max_iter = 200,
                     int min_paths_per_group = 100,
                     int max_paths_per_group = 2000,
