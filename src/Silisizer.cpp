@@ -59,7 +59,7 @@ int Silisizer::silisize(const char *workdir,
                         double delay_weight_exp,
                         double slack_weight_exp) {
   // DEBUG
-  const bool DEBUG = 1;
+  const bool DEBUG = 0;
   
   // Initialize network
   sta::Network* network = this->network();
