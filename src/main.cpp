@@ -65,8 +65,21 @@ int silisize(const char *workdir,
       delay_weight_exp, slack_weight_exp);
 }
 
+void segv_call_fn() {
+  int a;
+  a = 6;
+  a += 4;
+  a -= 2;
+  a /= 2;
+  raise(SIGSEGV);
+  printf("segv a: %d", a);
+}
+
 void test_abrt() { raise(SIGABRT); }
-void test_segv() { raise(SIGSEGV); }
+void test_segv() {
+  printf("About to raise segfault\n");
+  segv_call_fn();
+}
 
 // Flush stdout/stderr 
 void signalHandler(int signo) {
