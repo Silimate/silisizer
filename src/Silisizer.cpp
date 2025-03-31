@@ -134,13 +134,11 @@ int Silisizer::silisize(const char *workdir,
       }
 
       // Follow the path backwards to populate offending instance count
-      for (sta::PathRef p(path); !p.isNull(); p.prevPath(this, p)) {
+      for (sta::Path* p = path; p && !p->isNull(); p = p->prevPath()) {
         // Get the pin
-        sta::Pin *pin = p.pin(this);
-        // Get previous path and arc
-        sta::PathRef prev_path;
-        sta::TimingArc* prev_arc = nullptr;
-        p.prevPath(this, prev_path, prev_arc);
+        sta::Pin *pin = p->pin(this);
+        // Get previous arc
+        sta::TimingArc* prev_arc = p->prevArc(this);
         // Get the arc delay
         sta::Delay delay = 0.0f;
         if (prev_arc) delay = prev_arc->intrinsicDelay();
