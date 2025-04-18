@@ -16,6 +16,10 @@
 
 #include <tcl.h>
 
+#if TCL_READLINE
+  #include <tclreadline.h>
+#endif
+
 #include <iostream>
 
 #include "Silisizer.h"
@@ -116,6 +120,14 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
   // source init.tcl
   Tcl_Init(interp);
 
+#if TCL_READLINE
+  if (Tclreadline_Init(interp) == TCL_ERROR)
+    return TCL_ERROR;
+  Tcl_StaticPackage(interp, "tclreadline", Tclreadline_Init, Tclreadline_SafeInit);
+  if (Tcl_EvalFile(interp, TCLRL_LIBRARY "/tclreadlineInit.tcl") != TCL_OK)
+    printf("Failed to load tclreadline.tcl\n");
+#endif
+
   // Define swig commands.
   Silisizer_Init(interp);
   Sta_Init(interp);
@@ -144,5 +156,9 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
       }
     }
   }
+#if TCL_READLINE
+  return Tcl_Eval(interp, "::tclreadline::Loop");
+#else
   return TCL_OK;
+#endif
 }
