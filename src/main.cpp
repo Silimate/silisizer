@@ -14,18 +14,17 @@
 // You should have received a copy of the GNU General Public License
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 
-#include <tcl.h>
-
-#if TCL_READLINE
-  #include <tclreadline.h>
-#endif
-
 #include <iostream>
 
 #include "Silisizer.h"
 #include "sta/StaMain.hh"
 #include "backward.hpp"
 #include <csignal>
+
+#include <tcl.h>
+#if TCL_READLINE
+  #include <tclreadline.h>
+#endif
 
 using namespace SILISIZER;
 static int silisizerTclAppInit(Tcl_Interp *interp);
