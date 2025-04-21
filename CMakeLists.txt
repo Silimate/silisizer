@@ -87,7 +87,7 @@ endif()
 find_package(TCL)
 
 # Referenced by util/StaConfig.hh.cmake
-set(TCL_READLINE 0)
+set(USE_TCL_READLINE ON)
 # check for tclReadline
 if (USE_TCL_READLINE)
   set(TCL_READLINE_POSSIBLE_NAMES
