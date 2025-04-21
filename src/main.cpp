@@ -18,7 +18,7 @@
 
 #include "Silisizer.h"
 #include "sta/StaMain.hh"
-#include "sta/StaConfig.hh"  // STA_VERSION
+#include "StaConfig.hh"  // TCL_READLINE
 #include "backward.hpp"
 #include <csignal>
 
