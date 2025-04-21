@@ -194,6 +194,12 @@ if (UNIX)
   target_link_libraries(silisizer PUBLIC Backward::Interface)
 endif()
 
+if (TCL_READLINE)
+  target_link_libraries(OpenSTA ${TCL_READLINE_LIBRARY})
+  target_include_directories(OpenSTA
+    PUBLIC
+    ${TCL_READLINE_INCLUDE})
+endif()
 
 if (CMAKE_SYSTEM_NAME MATCHES "Linux")
   target_link_libraries(silisizer PRIVATE rt)
