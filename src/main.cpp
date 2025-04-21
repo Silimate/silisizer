@@ -157,6 +157,8 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
     }
   }
 #if TCL_READLINE
+  Tcl_Eval(interp, "proc ::tclreadline::prompt1 {} { return {% } }");
+  Tcl_Eval(interp, "proc ::tclreadline::prompt2 {} { return {> } }");
   return Tcl_Eval(interp, "::tclreadline::Loop");
 #else
   return TCL_OK;
