@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.20 FATAL_ERROR)
 
 project(SILISIZER VERSION 1.84)
 
+option(USE_TCL_READLINE "Use TCL readline package" ON)
+
 # Detect build type, fallback to release and throw a warning if use didn't
 # specify any
 if(NOT CMAKE_BUILD_TYPE)
@@ -87,7 +89,7 @@ endif()
 find_package(TCL)
 
 # Referenced by util/StaConfig.hh.cmake
-set(USE_TCL_READLINE ON)
+set(TCL_READLINE 0)
 # check for tclReadline
 if (USE_TCL_READLINE)
   set(TCL_READLINE_POSSIBLE_NAMES
