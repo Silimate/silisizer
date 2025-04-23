@@ -75,11 +75,9 @@ int Silisizer::silisize(const char *workdir,
 
   // Output the header for back-annotation CSV
   std::string workdir_str = workdir;
-  std::ofstream transforms(workdir_str + "/data/resized_cells.csv");
-  if (transforms.good()) {
-    transforms << "Scope" << "," << "Instance" << "," << "From cell" << ","
-               << "To cell" << std::endl;
-  }
+  std::ofstream transforms(workdir_str + "/data/resized_cells.tsv");
+  if (transforms.good())
+    transforms << "Scope" << "\t" << "Instance" << std::endl;
 
   // Iterate until the maximum number of iterations is reached
   double previous_wns = 1;
@@ -249,10 +247,8 @@ int Silisizer::silisize(const char *workdir,
       Sta::sta()->replaceCell(offender, to_cell);
       // Record the transformation for back-annotation in the folded model
       // (unique module name/cell name)
-      if (transforms.good()) {
-        transforms << "\"" << parentcellname << "\"" << "," << cellname << ","
-                   << sp0_name << "," << sp1_name << std::endl;
-      }
+      if (transforms.good())
+        transforms << parentcellname << "\t" << cellname << std::endl;
     }
 
     // Get delta WNS and delta WNS fraction
