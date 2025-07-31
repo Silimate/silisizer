@@ -19,6 +19,7 @@
 #include "Silisizer.h"
 #include "sta/StaMain.hh"
 #include "StaConfig.hh"  // TCL_READLINE
+#include "StringUtil.hh"
 #include "backward.hpp"
 #include <csignal>
 
@@ -30,11 +31,48 @@
 using namespace SILISIZER;
 static int silisizerTclAppInit(Tcl_Interp *interp);
 
+char *
+findCmdLineKey(int &argc,
+	       char *argv[],
+	       const char *key)
+{
+  for (int i = 1; i < argc; i++) {
+    char *arg = argv[i];
+    if (sta::stringEq(arg, key) && i + 1 < argc) {
+      char *value = argv[i + 1];
+      // Remove key and value from argv.
+      for (int j = i + 2; j < argc; j++, i++)
+	argv[i] = argv[j];
+      argc -= 2;
+      argv[argc] = nullptr;
+      return value;
+    }
+  }
+  return nullptr;
+}
+
+int
+parseThreadsArg(int &argc,
+		char *argv[])
+{
+  char *thread_arg = findCmdLineKey(argc, argv, "-threads");
+  if (thread_arg) {
+    if (sta::stringEqual(thread_arg, "max"))
+      return sta::processorCount();
+    else if (sta::isDigits(thread_arg))
+      return atoi(thread_arg);
+    else
+      fprintf(stderr,"Warning: -threads must be max or a positive integer.\n");
+  }
+  return 1;
+}
+
 static void showUsage(char *prog) {
-  printf("Usage: %s [-help] [-version] [-no_init] [-no_splash] cmd_file\n",
+  printf("Usage: %s [-help] [-version] [-threads count|max] cmd_file\n",
          prog);
   printf("  -help              show help and exit\n");
   printf("  -version           show version and exit\n");
+  printf("  -threads count|max use count threads\n");
   printf("  cmd_file           source cmd_file and exit\n");
 }
 
@@ -134,6 +172,8 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
 
   sta::Sta *sta = sta::Sta::sta();
   sta->setTclInterp(interp);
+  int thread_count = parseThreadsArg(argc, argv);
+  sta->setThreadCount(thread_count);
 
   // Eval encoded sta TCL sources.
   sta::evalTclInit(interp, sta::tcl_inits);
