@@ -99,8 +99,9 @@ int Silisizer::silisize(const char *workdir,
 
     // If no paths are found, we are done
     if (ends.empty()) {
-      std::cout << "Final WNS: 0" << std::endl;
-      std::cout << "Timing optimization done!" << std::endl;
+      std::cout << "No paths found..." << std::endl
+                << "Final WNS: 0" << std::endl
+                << "Timing optimization done!" << std::endl;
       break;
     }
 
@@ -178,8 +179,9 @@ int Silisizer::silisize(const char *workdir,
     if (offending_inst_score.empty()) {
       // If there are no fixable cells at all and the WNS is zero, we are done
       if (wns == 0.0f) {
-        std::cout << "Final WNS: 0" << std::endl;
-        std::cout << "Timing optimization done!" << std::endl;
+        std::cout << "No fixable cells and WNS is 0!" << std::endl
+                  << "Final WNS: 0" << std::endl
+                  << "Timing optimization done!" << std::endl;
       }
       // If there are no fixable cells at all and the WNS is non-zero, then we
       // have done all we can, but we are still failing timing
@@ -205,7 +207,8 @@ int Silisizer::silisize(const char *workdir,
 
     // If no offending cells, we are done
     if (offenders.empty()) {
-      std::cout << "Final WNS: 0" << std::endl
+      std::cout << "No offenders found..." << std::endl
+                << "Final WNS: 0" << std::endl
                 << "Timing optimization done!" << std::endl;
       break;
     }
@@ -236,10 +239,10 @@ int Silisizer::silisize(const char *workdir,
       sta::LibertyCell* to_cell = library->findLibertyCell(sp1_name.c_str());
       if (!to_cell) {
         // Should never happen since we create Liberty cells for both speeds
-        std::cout << "WARNING: Missing cell model " << sp1_name << std::endl;
-        std::cout << "This should never happen!" << std::endl;
-        std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
-        std::cout << "Timing optimization partially done!" << std::endl;
+        std::cout << "WARNING: Missing cell model " << sp1_name << std::endl
+                  << "This should never happen!" << std::endl
+                  << "Final WNS: " << -(wns * 1e12) << std::endl
+                  << "Timing optimization partially done!" << std::endl;
         transforms.close();
         return 0;
       }
@@ -270,9 +273,13 @@ int Silisizer::silisize(const char *workdir,
     effort = std::max(std::min(effort + delta_effort, 1.0), 0.0);
     paths_per_group = effort * max_paths_per_group;
     paths_per_group += (1 - effort) * min_paths_per_group;
+    paths_per_group = std::roundl(paths_per_group);
+    paths_per_group = std::max(paths_per_group, min_paths_per_group);
     paths_per_group = std::min(paths_per_group, max_paths_per_group);
     swaps_per_iter = effort * max_swaps_per_iter;
     swaps_per_iter += (1 - effort) * min_swaps_per_iter;
+    swaps_per_iter = std::roundl(swaps_per_iter);
+    swaps_per_iter = std::max(swaps_per_iter, min_swaps_per_iter);
     swaps_per_iter = std::min(swaps_per_iter, max_swaps_per_iter);
 
     // Print the current iteration and WNS
