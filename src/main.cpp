@@ -162,8 +162,10 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
   if (Tclreadline_Init(interp) == TCL_ERROR)
     return TCL_ERROR;
   Tcl_StaticPackage(interp, "tclreadline", Tclreadline_Init, Tclreadline_SafeInit);
-  if (Tcl_EvalFile(interp, TCLRL_LIBRARY "/tclreadlineInit.tcl") != TCL_OK)
+  if (Tcl_EvalFile(interp, TCLRL_LIBRARY "/tclreadlineInit.tcl") != TCL_OK) {
     printf("Failed to load tclreadline.tcl\n");
+    printf("TCLRL_LIBRARY: %s\n", TCLRL_LIBRARY);
+  }
 #endif
 
   // Define swig commands.
