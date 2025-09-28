@@ -167,7 +167,7 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
     std::string tcl_library;
     try {
       tcl_library = getenv("TCL_LIBRARY");
-    } catch {
+    } catch (...) {
       printf("Failed to get TCL_LIBRARY\n");
     }
     std::string tclreadline_init = tcl_library + "/tclreadline2.1.0/tclreadlineInit.tcl";
