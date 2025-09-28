@@ -164,7 +164,12 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
     return TCL_ERROR;
   Tcl_StaticPackage(interp, "tclreadline", Tclreadline_Init, Tclreadline_SafeInit);
   if (Tcl_EvalFile(interp, TCLRL_LIBRARY "/tclreadlineInit.tcl") != TCL_OK) {
-    std::string tcl_library = getenv("TCL_LIBRARY");
+    std::string tcl_library;
+    try {
+      tcl_library = getenv("TCL_LIBRARY");
+    } catch {
+      printf("Failed to get TCL_LIBRARY\n");
+    }
     std::string tclreadline_init = tcl_library + "/tclreadline2.1.0/tclreadlineInit.tcl";
     if (Tcl_EvalFile(interp, tclreadline_init.c_str()) != TCL_OK) {
       printf("Failed to load tclreadline.tcl\n");
