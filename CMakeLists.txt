@@ -217,3 +217,5 @@ install(
   LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
   PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/Silisizer)
 
+enable_testing()
+add_subdirectory(tests)

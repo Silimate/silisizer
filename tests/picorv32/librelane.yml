@@ -1,0 +1,9 @@
+# run synthesis with librelane
+DESIGN_NAME: picorv32
+VERILOG_FILES: picorv32.v
+CLOCK_PORT: clk
+LIB:
+  "*": "dir::../common/sky130_fd_sc_hd__tt_025C_1v80.lib.gz"
+meta:
+  flow:
+    - Yosys.Synthesis
