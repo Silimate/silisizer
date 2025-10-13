@@ -1,0 +1,8 @@
+#!/bin/bash
+silisizer=$1
+
+set -e
+set -x
+
+$silisizer -exit ./silisize.tcl | tee out.log
+grep "Final WNS: 0" out.log
