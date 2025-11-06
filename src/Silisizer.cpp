@@ -15,6 +15,7 @@
 // along with this program. If not, see <https://www.gnu.org/licenses/>.
 #include "Silisizer.h"
 
+#include <algorithm>
 #include <cmath>
 #include <fstream>
 #include <iostream>
@@ -26,7 +27,10 @@
 #include "sta/PortDirection.hh"
 #include "sta/Sta.hh"
 
-namespace SILISIZER {
+namespace silisizer {
+
+// DEBUG flag
+const bool DEBUG = 0;
 
 // Replace all occurrences of `from` in `str` with `to`
 std::string replaceAll(std::string_view str, std::string_view from,
@@ -50,28 +54,12 @@ std::string reverseOpenSTANaming(std::string cellname) {
 }
 
 // Silisizer: resize operator-level cells to resolve timing violations
-int Silisizer::silisize(const char *workdir,
-                        int max_iter,
-                        int min_paths_per_group,
-                        int max_paths_per_group,
-                        int min_swaps_per_iter,
-                        int max_swaps_per_iter,
-                        double delay_weight_exp,
-                        double slack_weight_exp) {
-  // DEBUG
-  const bool DEBUG = 0;
-  
+int Silisizer::silisize(const char *workdir) {
   // Initialize network
   sta::Network* network = this->network();
 
-  // Effort variables (PI control)
-  int paths_per_group = min_paths_per_group;
-  int swaps_per_iter = min_swaps_per_iter;
-  double effort = 0; // next_effort = effort + P * err + I * cum_err
-  double target_wns_frac_cum_err = 0; // next_cum_err = cum_err + err 
-  const double P = 1; // proportional gain (P multiplier)
-  const double I = 1 / max_iter; // integral gain (I multiplier)
-  const double TARGET_FINISH_ITER = max_iter * 0.5; // iter to try to finish by
+  // Effort variables (multiply swaps per iteration by 2 until complete)
+  int swaps_per_iter = 1;
 
   // Output the header for back-annotation CSV
   std::string workdir_str = workdir;
@@ -81,14 +69,14 @@ int Silisizer::silisize(const char *workdir,
 
   // Iterate until the maximum number of iterations is reached
   double previous_wns = 1;
-  for (int cur_iter = 0; cur_iter < max_iter; cur_iter++) {
+  for (int cur_iter = 0; true; cur_iter++) {
     // Run timer to get violating paths (one per endpoint)
     std::cout << "Running timer..." << std::endl;
     sta::PathEndSeq ends = sta_->findPathEnds(
         /*exception from*/ nullptr, /*exception through*/ nullptr,
         /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
-        /*min_max*/ sta::MinMaxAll::all(),
-        /*group_count*/ paths_per_group, /*endpoint_count*/ 1,
+        /*min_max*/ sta::MinMaxAll::max(),
+        /*group_count*/ 10000, /*endpoint_count*/ 1,
         /*unique_pins*/ true,
         /*unique_edges*/ true,
         /*min_slack*/ -1.0e+30, /*max_slack*/ 0.0,
@@ -158,8 +146,7 @@ int Silisizer::silisize(const char *workdir,
         }
         // Map instances found in all paths, record cumulative arc delay
         // contribution for each instance accross all paths
-        double delta_score = pow(delay, delay_weight_exp);
-        delta_score *= pow(fabs(slack), slack_weight_exp);
+        double delta_score = std::min((double) delay, -slack);
         if (offending_inst_score.find(inst) == offending_inst_score.end()) {
           offending_inst_score.emplace(inst, delta_score);
         } else {
@@ -187,8 +174,9 @@ int Silisizer::silisize(const char *workdir,
       // If there are no fixable cells at all and the WNS is non-zero, then we
       // have done all we can, but we are still failing timing
       else {
-        std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
-        std::cout << "Timing optimization partially done!" << std::endl;
+        std::cout << "No fixable cells and WNS is non-zero!" << std::endl
+                  << "Final WNS: " << -(wns * 1e12) << std::endl
+                  << "Timing optimization partially done!" << std::endl;
       }
       break;
     }
@@ -266,54 +254,25 @@ int Silisizer::silisize(const char *workdir,
     }
 
     // Set effort based on delta WNS
-    double iters_remaining = std::max(TARGET_FINISH_ITER - cur_iter, 1.0);
-    double target_wns_frac = 1 / iters_remaining;
-    double target_wns_frac_err = target_wns_frac - delta_wns_frac;
-    double delta_effort = P*target_wns_frac_err + I*target_wns_frac_cum_err;
-    target_wns_frac_cum_err += target_wns_frac_err;
-    effort = std::max(std::min(effort + delta_effort, 1.0), 0.0);
-    paths_per_group = effort * max_paths_per_group;
-    paths_per_group += (1 - effort) * min_paths_per_group;
-    paths_per_group = std::roundl(paths_per_group);
-    paths_per_group = std::max(paths_per_group, min_paths_per_group);
-    paths_per_group = std::min(paths_per_group, max_paths_per_group);
-    swaps_per_iter = effort * max_swaps_per_iter;
-    swaps_per_iter += (1 - effort) * min_swaps_per_iter;
-    swaps_per_iter = std::roundl(swaps_per_iter);
-    swaps_per_iter = std::max(swaps_per_iter, min_swaps_per_iter);
-    swaps_per_iter = std::min(swaps_per_iter, max_swaps_per_iter);
+    if (delta_wns_frac < 0.1)
+      swaps_per_iter *= 2;
 
     // Print the current iteration and WNS
-    std::cout << "Iter " << cur_iter + 1 << " of " << max_iter << std::endl;
+    std::cout << "Iter " << cur_iter + 1 << std::endl;
     std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
 
     // DEBUG: Print the current effort and corresponding variables
     if (DEBUG) {
       std::cout << "******************************" << std::endl;
       std::cout << "Current iter: " << cur_iter << std::endl;
-      std::cout << "Target finish iter: " << TARGET_FINISH_ITER << std::endl;
-      std::cout << "Iters remaining: " << iters_remaining << std::endl;
       std::cout << "------------------------------" << std::endl;
       std::cout << "Previous WNS: " << -(previous_wns * 1e12) << std::endl;
       std::cout << "Current WNS: " << -(wns * 1e12) << std::endl;
       std::cout << "Delta WNS: " << delta_wns * 1e12 << std::endl;
       std::cout << "Delta WNS frac: " << delta_wns_frac << std::endl;
-      std::cout << "Target WNS frac: " << target_wns_frac << std::endl;
-      std::cout << "Target WNS frac err: " << target_wns_frac_err << std::endl;
       std::cout << "------------------------------" << std::endl;
-      std::cout << "Current effort: " << effort << std::endl;
-      std::cout << "Paths per group: " << paths_per_group << std::endl;
       std::cout << "Swaps per iter: " << swaps_per_iter << std::endl;
       std::cout << "******************************" << std::endl;
-    }
-
-    // If we are here at the last iteration, we were unable to meet timing
-    if (cur_iter == (max_iter - 1)) {
-      std::cout << "WARNING: Cannot meet timing constraints!" << std::endl;
-      std::cout << "Final WNS: " << -(wns * 1e12) << std::endl;
-      std::cout << "Timing optimization partially done!" << std::endl;
-      transforms.close();
-      return 0;
     }
 
     // Store previous WNS for delta calculation
@@ -325,4 +284,4 @@ int Silisizer::silisize(const char *workdir,
   return 0;
 }
 
-}  // namespace SILISIZER
+}  // namespace silisizer

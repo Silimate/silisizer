@@ -18,16 +18,7 @@
 
 %inline %{
 
-extern int silisize(
-                    const char *workdir,
-                    int max_iter = 200,
-                    int min_paths_per_group = 100,
-                    int max_paths_per_group = 2000,
-                    int min_swaps_per_iter = 3,
-                    int max_swaps_per_iter = 20,
-                    double delay_weight_exp = 1.0,
-                    double slack_weight_exp = 1.0
-                    );
+extern int silisize(const char *workdir);
 
 extern void test_abrt();
 extern void test_segv();
