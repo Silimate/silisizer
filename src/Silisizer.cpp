@@ -254,7 +254,7 @@ int Silisizer::silisize(const char *workdir) {
     }
 
     // Set effort based on delta WNS
-    if (delta_wns_frac < 0.1)
+    if (delta_wns_frac < 0.1 && swaps_per_iter < 1048576)
       swaps_per_iter *= 2;
 
     // Print the current iteration and WNS
