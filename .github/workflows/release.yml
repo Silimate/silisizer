@@ -110,6 +110,7 @@ jobs:
 
       - name: Build silisizer
         run: |
+          export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
           cmake -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr/local \
