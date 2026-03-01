@@ -50,6 +50,9 @@ jobs:
               cmake --build build -j$(nproc)
               DESTDIR=/tmp/install cmake --install build
 
+              # Remove sta binary (silisizer is a superset)
+              rm -f /tmp/install/usr/local/bin/sta
+
               # Bundle shared library dependencies and set RPATHs
               STAGE=/tmp/install/usr/local
               mkdir -p "$STAGE/lib"
@@ -123,6 +126,9 @@ jobs:
             -S . -B build
           cmake --build build -j$(sysctl -n hw.ncpu)
           DESTDIR=/tmp/install cmake --install build
+
+      - name: Remove sta binary
+        run: rm -f /tmp/install/usr/local/bin/sta
 
       - name: Bundle non-system dylibs
         run: |
