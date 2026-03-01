@@ -1,4 +1,4 @@
-name: Release (anylinux amd64)
+name: Release (anylinux amd64 + macOS arm64)
 
 on:
   push:
@@ -10,7 +10,7 @@ permissions:
   contents: write
 
 jobs:
-  build-and-release:
+  build-linux:
     runs-on: ubuntu-latest
     name: Build anylinux amd64 tarball
 
@@ -80,6 +80,105 @@ jobs:
               tar czf /src/silisizer-anylinux-amd64.tar.gz .
             '
 
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: silisizer-anylinux-amd64
+          path: silisizer-anylinux-amd64.tar.gz
+
+  build-macos:
+    runs-on: macos-15
+    name: Build macOS arm64 tarball
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Install dependencies
+        run: |
+          brew install cmake ninja tcl-tk@8 swig bison flex readline eigen dwarfutils libelf
+
+      - name: Build CUDD from source
+        run: |
+          curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzC /tmp
+          cd /tmp/cudd-3.0.0
+          ./configure
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
+
+      - name: Build silisizer
+        run: |
+          cmake -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_INSTALL_PREFIX=/usr/local \
+            -DBUILD_SHARED_LIBS=OFF \
+            -DTCL_LIBRARY=$(brew --prefix tcl-tk@8)/lib/libtcl8.6.dylib \
+            -DTCL_INCLUDE_PATH=$(brew --prefix tcl-tk@8)/include/tcl-tk \
+            -DLIBDWARF_INCLUDE_DIR=$(brew --prefix dwarfutils)/include/libdwarf-0 \
+            -DLIBELF_INCLUDE_DIR=$(brew --prefix libelf)/include/libelf \
+            -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include \
+            -S . -B build
+          cmake --build build -j$(sysctl -n hw.ncpu)
+          DESTDIR=/tmp/install cmake --install build
+
+      - name: Bundle non-system dylibs
+        run: |
+          STAGE=/tmp/install/usr/local
+          mkdir -p "$STAGE/lib"
+
+          bundle_dylibs() {
+            for f in "$@"; do
+              [ -f "$f" ] || continue
+              otool -L "$f" 2>/dev/null | awk 'NR>1 {print $1}' | while read -r lib; do
+                [ -f "$lib" ] || continue
+                case "$lib" in /usr/lib/*|/System/*) continue ;; esac
+                base=$(basename "$lib")
+                if [ ! -f "$STAGE/lib/$base" ]; then
+                  cp "$lib" "$STAGE/lib/$base"
+                fi
+                install_name_tool -change "$lib" "@rpath/$base" "$f" 2>/dev/null || true
+              done
+            done
+          }
+
+          bundle_dylibs "$STAGE"/bin/*
+          bundle_dylibs "$STAGE"/lib/*.dylib
+
+          for f in "$STAGE"/bin/*; do
+            [ -f "$f" ] && install_name_tool -add_rpath "@executable_path/../lib" "$f" 2>/dev/null || true
+          done
+          for f in "$STAGE"/lib/*.dylib; do
+            [ -f "$f" ] && install_name_tool -add_rpath "@loader_path" "$f" 2>/dev/null || true
+          done
+
+      - name: Create tarball
+        run: |
+          cd /tmp/install
+          tar czf "${{ github.workspace }}/silisizer-macos-arm64.tar.gz" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: silisizer-macos-arm64
+          path: silisizer-macos-arm64.tar.gz
+
+  release:
+    runs-on: ubuntu-latest
+    needs: [build-linux, build-macos]
+    name: Create GitHub releases
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          merge-multiple: true
+
       - name: Generate release notes
         id: meta
         run: |
@@ -92,13 +191,12 @@ jobs:
           printf '%s\n' \
             "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
             "" \
-            "**Platform:** Linux amd64 (Alpine-based, portable across Linux distros)" \
-            "**Built:** ${DATE}" \
+            "| Platform | Archive | Install |" \
+            "|----------|---------|---------|" \
+            "| Linux amd64 (Alpine-based, portable) | \`silisizer-anylinux-amd64.tar.gz\` | \`sudo tar xzf silisizer-anylinux-amd64.tar.gz -C /\` |" \
+            "| macOS arm64 (Apple Silicon) | \`silisizer-macos-arm64.tar.gz\` | \`sudo tar xzf silisizer-macos-arm64.tar.gz -C /\` |" \
             "" \
-            "### Installation" \
-            "\`\`\`bash" \
-            "sudo tar xzf silisizer-anylinux-amd64.tar.gz -C /" \
-            "\`\`\`" \
+            "**Built:** ${DATE}" \
             > release_notes.md
 
       - name: Create permanent release
@@ -106,6 +204,7 @@ jobs:
           TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
           gh release create "$TAG" \
             silisizer-anylinux-amd64.tar.gz \
+            silisizer-macos-arm64.tar.gz \
             --target "${{ github.sha }}" \
             --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
             --notes-file release_notes.md
@@ -119,6 +218,7 @@ jobs:
           gh release delete latest --yes 2>/dev/null || true
           gh release create latest \
             silisizer-anylinux-amd64.tar.gz \
+            silisizer-macos-arm64.tar.gz \
             --target "${{ github.sha }}" \
             --title "Latest Build (${{ steps.meta.outputs.date }})" \
             --notes-file release_notes.md \
