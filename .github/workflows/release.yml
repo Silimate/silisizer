@@ -123,8 +123,8 @@ jobs:
                 libdwarf-devel binutils-devel
 
               # Build cmake >= 3.16 from source (CentOS 7 ships too old)
-              curl -L https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.tar.gz | tar -xzC /opt
-              export PATH=/opt/cmake-3.28.3-linux-x86_64/bin:$PATH
+              curl -L https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-x86_64.tar.gz | tar -xzC /opt
+              export PATH=/opt/cmake-3.31.4-linux-x86_64/bin:$PATH
 
               # Build bison >= 3.x from source
               curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
