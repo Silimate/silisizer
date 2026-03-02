@@ -1,4 +1,4 @@
-name: Release (anylinux amd64 + macOS arm64)
+name: Release (anylinux amd64 + manylinux2014 amd64 + macOS arm64)
 
 on:
   push:
@@ -12,7 +12,7 @@ permissions:
 jobs:
   build-linux:
     runs-on: ubuntu-latest
-    name: Build anylinux amd64 tarball
+    name: Build anylinux amd64 tarball (musl)
 
     steps:
       - uses: actions/checkout@v4
@@ -88,6 +88,103 @@ jobs:
         with:
           name: silisizer-anylinux-amd64
           path: silisizer-anylinux-amd64.tar.gz
+
+  build-manylinux:
+    runs-on: ubuntu-latest
+    name: Build manylinux2014 amd64 tarball (glibc 2.17+)
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          submodules: true
+
+      - name: Build in CentOS 7 container
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}:/src" \
+            -w /src \
+            --platform linux/amd64 \
+            centos:7 bash -c '
+              set -ex
+
+              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
+              yum install -y centos-release-scl epel-release
+              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
+              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
+              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
+
+              yum install -y devtoolset-11-gcc-c++ make git curl \
+                tcl-devel swig3 flex zlib-devel readline-devel eigen3-devel \
+                patchelf
+
+              # Build cmake >= 3.16 from source (CentOS 7 ships too old)
+              curl -L https://github.com/Kitware/CMake/releases/download/v3.28.3/cmake-3.28.3-linux-x86_64.tar.gz | tar -xzC /opt
+              export PATH=/opt/cmake-3.28.3-linux-x86_64/bin:$PATH
+
+              # Build bison >= 3.x from source
+              curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
+              cd /tmp/bison-3.8.2 && source /opt/rh/devtoolset-11/enable && ./configure && make -j$(nproc) && make install
+              cd /src
+
+              source /opt/rh/devtoolset-11/enable
+
+              # Build CUDD
+              curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzC /tmp
+              cd /tmp/cudd-3.0.0
+              ./configure
+              make -j$(nproc)
+              make install
+              cd /src
+
+              git config --global --add safe.directory /src
+              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
+              cmake -DCMAKE_BUILD_TYPE=Release \
+                -DCMAKE_INSTALL_PREFIX=/usr/local \
+                -DBUILD_SHARED_LIBS=OFF \
+                -S . -B build
+              cmake --build build -j$(nproc)
+              DESTDIR=/tmp/install cmake --install build
+
+              rm -f /tmp/install/usr/local/bin/sta
+
+              STAGE=/tmp/install/usr/local
+              mkdir -p "$STAGE/lib"
+
+              copy_deps() {
+                for f in "$@"; do
+                  [ -f "$f" ] || continue
+                  ldd "$f" 2>/dev/null | awk "/=>/ {print \$3}" | while read -r lib; do
+                    [ -f "$lib" ] || continue
+                    base=$(basename "$lib")
+                    case "$base" in ld-linux*|libc.so*|libdl*|libpthread*|librt*|libm.so*) continue ;; esac
+                    [ -f "$STAGE/lib/$base" ] || cp "$lib" "$STAGE/lib/$base"
+                  done
+                done
+              }
+
+              copy_deps "$STAGE"/bin/*
+              copy_deps "$STAGE"/lib/*.so*
+
+              for f in "$STAGE"/bin/*; do
+                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
+              done
+              for f in "$STAGE"/lib/*.so*; do
+                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN" "$f" 2>/dev/null || true
+              done
+
+              cd /tmp/install
+              tar czf /src/silisizer-manylinux2014-amd64.tar.gz .
+            '
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: silisizer-manylinux2014-amd64
+          path: silisizer-manylinux2014-amd64.tar.gz
 
   build-macos:
     runs-on: macos-15
@@ -173,7 +270,7 @@ jobs:
 
   release:
     runs-on: ubuntu-latest
-    needs: [build-linux, build-macos]
+    needs: [build-linux, build-manylinux, build-macos]
     name: Create GitHub releases
 
     steps:
@@ -200,7 +297,8 @@ jobs:
             "" \
             "| Platform | Archive | Install |" \
             "|----------|---------|---------|" \
-            "| Linux amd64 (Alpine-based, portable) | \`silisizer-anylinux-amd64.tar.gz\` | \`sudo tar xzf silisizer-anylinux-amd64.tar.gz -C /\` |" \
+            "| Linux amd64 (musl, statically portable) | \`silisizer-anylinux-amd64.tar.gz\` | \`sudo tar xzf silisizer-anylinux-amd64.tar.gz -C /\` |" \
+            "| Linux amd64 (manylinux2014, glibc 2.17+) | \`silisizer-manylinux2014-amd64.tar.gz\` | \`sudo tar xzf silisizer-manylinux2014-amd64.tar.gz -C /\` |" \
             "| macOS arm64 (Apple Silicon) | \`silisizer-macos-arm64.tar.gz\` | \`sudo tar xzf silisizer-macos-arm64.tar.gz -C /\` |" \
             "" \
             "**Built:** ${DATE}" \
@@ -211,6 +309,7 @@ jobs:
           TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
           gh release create "$TAG" \
             silisizer-anylinux-amd64.tar.gz \
+            silisizer-manylinux2014-amd64.tar.gz \
             silisizer-macos-arm64.tar.gz \
             --target "${{ github.sha }}" \
             --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
@@ -225,6 +324,7 @@ jobs:
           gh release delete latest --yes 2>/dev/null || true
           gh release create latest \
             silisizer-anylinux-amd64.tar.gz \
+            silisizer-manylinux2014-amd64.tar.gz \
             silisizer-macos-arm64.tar.gz \
             --target "${{ github.sha }}" \
             --title "Latest Build (${{ steps.meta.outputs.date }})" \
