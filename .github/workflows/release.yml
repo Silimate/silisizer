@@ -148,6 +148,7 @@ jobs:
               ./configure
               make -j$(nproc)
               make install
+              ldconfig
               cd /src
 
               git config --global --add safe.directory /src
