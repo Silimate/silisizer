@@ -72,6 +72,10 @@ jobs:
               copy_deps "$STAGE"/bin/*
               copy_deps "$STAGE"/lib/*.so*
 
+              # Bundle Tcl 8.6 library scripts (Alpine installs to /usr/lib)
+              TCL_LIB_DIR=$(find /usr/lib /usr/local/lib -maxdepth 1 -name "tcl8.6" -type d 2>/dev/null | head -1)
+              [ -d "$TCL_LIB_DIR" ] && cp -r "$TCL_LIB_DIR" $STAGE/lib/tcl8.6
+
               for f in "$STAGE"/bin/*; do
                 [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
               done
@@ -177,8 +181,9 @@ jobs:
               copy_deps "$STAGE"/lib/*.so*
 
               # Ensure libtcl8.6 and Tcl library scripts are bundled
-              cp -n /usr/local/lib/libtcl8.6.so "$STAGE/lib/" 2>/dev/null || true
-              cp -rn /usr/local/lib/tcl8.6 "$STAGE/lib/" 2>/dev/null || true
+              TCL_LIB_DIR=$(find /usr/local/lib -maxdepth 1 -name "tcl8.6" -type d 2>/dev/null | head -1)
+              echo "TCL_LIB_DIR: $TCL_LIB_DIR"
+              [ -d "$TCL_LIB_DIR" ] && cp -a "$TCL_LIB_DIR" "$STAGE/lib/tcl8.6"
 
               for f in "$STAGE"/bin/*; do
                 [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
@@ -267,6 +272,9 @@ jobs:
           for f in "$STAGE"/lib/*.dylib; do
             [ -f "$f" ] && install_name_tool -add_rpath "@loader_path" "$f" 2>/dev/null || true
           done
+
+          # Bundle Tcl 8.6 library scripts
+          cp -r "$(brew --prefix tcl-tk@8)/lib/tcl8.6" $STAGE/lib/tcl8.6
 
       - name: Create tarball
         run: |

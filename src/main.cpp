@@ -146,7 +146,11 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
   char **argv = silisizer_argv;
 
   // source init.tcl
-  Tcl_Init(interp);
+  if (Tcl_Init(interp) == TCL_ERROR) {
+    printf("Error: Tcl_Init failed: %s\n", Tcl_GetStringResult(interp));
+    printf("Set TCL_LIBRARY to the directory containing init.tcl\n");
+    return TCL_ERROR;
+  }
 
 #if TCL_READLINE
   if (Tclreadline_Init(interp) == TCL_ERROR)
