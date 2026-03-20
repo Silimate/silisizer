@@ -148,15 +148,11 @@ jobs:
               ./configure
               make -j$(nproc)
               make install
-              ldconfig
               cd /src
 
               git config --global --add safe.directory /src
               git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
-              cmake -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_INSTALL_PREFIX=/usr/local \
-                -DBUILD_SHARED_LIBS=OFF \
-                -S . -B build
+              cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local -S . -B build
               cmake --build build -j$(nproc)
               DESTDIR=/tmp/install cmake --install build
 
@@ -179,6 +175,10 @@ jobs:
 
               copy_deps "$STAGE"/bin/*
               copy_deps "$STAGE"/lib/*.so*
+
+              # Ensure libtcl8.6 and Tcl library scripts are bundled
+              cp -n /usr/local/lib/libtcl8.6.so "$STAGE/lib/" 2>/dev/null || true
+              cp -rn /usr/local/lib/tcl8.6 "$STAGE/lib/" 2>/dev/null || true
 
               for f in "$STAGE"/bin/*; do
                 [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
