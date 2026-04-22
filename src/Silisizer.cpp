@@ -285,8 +285,6 @@ int Silisizer::silisize(const char *workdir) {
   return 0;
 }
 
-// Minimal JSON string escape (only " and \). OpenSTA path/cell names do not
-// contain control characters that would otherwise need encoding.
 static std::string jsonEscape(std::string_view s) {
   std::string out;
   out.reserve(s.size());
@@ -297,6 +295,7 @@ static std::string jsonEscape(std::string_view s) {
   return out;
 }
 
+// JSON dumper for clock gating related instances
 void dumpIcgJson(const char *path) {
   sta::Sta *sta = sta::Sta::sta();
   sta::Network *network = sta->network();
