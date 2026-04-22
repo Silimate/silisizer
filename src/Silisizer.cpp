@@ -20,6 +20,7 @@
 #include <fstream>
 #include <iostream>
 #include <list>
+#include <memory>
 
 #include "sta/Liberty.hh"
 #include "sta/Network.hh"
@@ -282,6 +283,51 @@ int Silisizer::silisize(const char *workdir) {
   // Clean up
   transforms.close();
   return 0;
+}
+
+// Remove escape characters from JSON output
+static std::string jsonName(const char *s) {
+  std::string out;
+  for (; *s; ++s) if (*s != '\\') out.push_back(*s);
+  return out;
+}
+
+// JSON dumper for clock gating related instances
+void dumpIcgJson(const char *path) {
+  sta::Sta *sta = sta::Sta::sta();
+  sta::Network *network = sta->network();
+
+  std::ofstream f(path);
+  if (!f.good()) {
+    std::cerr << "dump_icg_json: cannot open " << path << " for write" << std::endl;
+    return;
+  }
+
+  // Dump gated registers.
+  f << "{\n  \"gated_flops\": [";
+  bool first = true;
+  for (const sta::Instance *reg : sta->clockGatedRegisters()) {
+    if (!first) f << ",";
+    f << "\n    \"" << jsonName(network->pathName(reg)) << "\"";
+    first = false;
+  }
+  f << (first ? "" : "\n  ") << "],\n  \"icgs\": {";
+
+  // Dump clock-gating instances mapped to their liberty cell names.
+  first = true;
+  std::unique_ptr<sta::LeafInstanceIterator> it(network->leafInstanceIterator());
+  while (it->hasNext()) {
+    sta::Instance *inst = it->next();
+    sta::Cell *cell = network->cell(inst);
+    if (!cell) continue;
+    sta::LibertyCell *lc = network->libertyCell(cell);
+    if (!lc || !lc->isClockGate()) continue;
+    if (!first) f << ",";
+    f << "\n    \"" << jsonName(network->pathName(inst))
+      << "\": \"" << jsonName(lc->name()) << "\"";
+    first = false;
+  }
+  f << (first ? "" : "\n  ") << "}\n}\n";
 }
 
 }  // namespace silisizer

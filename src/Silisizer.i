@@ -19,6 +19,7 @@
 %inline %{
 
 extern int silisize(const char *workdir);
+extern void dump_icg_json(const char *path);
 
 extern void test_abrt();
 extern void test_segv();
