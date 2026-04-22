@@ -318,7 +318,9 @@ void dumpIcgJson(const char *path) {
   std::unique_ptr<sta::LeafInstanceIterator> it(network->leafInstanceIterator());
   while (it->hasNext()) {
     sta::Instance *inst = it->next();
-    sta::LibertyCell *lc = network->libertyCell(network->cell(inst));
+    sta::Cell *cell = network->cell(inst);
+    if (!cell) continue;
+    sta::LibertyCell *lc = network->libertyCell(cell);
     if (!lc || !lc->isClockGate()) continue;
     if (!first) f << ",";
     f << "\n    \"" << jsonName(network->pathName(inst))
