@@ -285,13 +285,10 @@ int Silisizer::silisize(const char *workdir) {
   return 0;
 }
 
-static std::string jsonEscape(std::string_view s) {
+// Remove escape characters from JSON output
+static std::string jsonName(const char *s) {
   std::string out;
-  out.reserve(s.size());
-  for (char c : s) {
-    if (c == '"' || c == '\\') out.push_back('\\');
-    out.push_back(c);
-  }
+  for (; *s; ++s) if (*s != '\\') out.push_back(*s);
   return out;
 }
 
@@ -311,7 +308,7 @@ void dumpIcgJson(const char *path) {
   bool first = true;
   for (const sta::Instance *reg : sta->clockGatedRegisters()) {
     if (!first) f << ",";
-    f << "\n    \"" << jsonEscape(network->pathName(reg)) << "\"";
+    f << "\n    \"" << jsonName(network->pathName(reg)) << "\"";
     first = false;
   }
   f << (first ? "" : "\n  ") << "],\n  \"icgs\": {";
@@ -324,8 +321,8 @@ void dumpIcgJson(const char *path) {
     sta::LibertyCell *lc = network->libertyCell(network->cell(inst));
     if (!lc || !lc->isClockGate()) continue;
     if (!first) f << ",";
-    f << "\n    \"" << jsonEscape(network->pathName(inst))
-      << "\": \"" << jsonEscape(lc->name()) << "\"";
+    f << "\n    \"" << jsonName(network->pathName(inst))
+      << "\": \"" << jsonName(lc->name()) << "\"";
     first = false;
   }
   f << (first ? "" : "\n  ") << "}\n}\n";
