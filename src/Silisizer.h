@@ -24,4 +24,6 @@ class Silisizer : public sta::Sta {
   int silisize(const char *workdir);
 };
 
+void dumpIcgJson(const char *path);
+
 }  // namespace silisizer

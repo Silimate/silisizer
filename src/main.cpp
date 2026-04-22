@@ -97,6 +97,10 @@ int silisize(const char *workdir) {
   return sizer->silisize(workdir);
 }
 
+void dump_icg_json(const char *path) {
+  silisizer::dumpIcgJson(path);
+}
+
 void segv_call_fn() {
   int a;
   a = 6;
