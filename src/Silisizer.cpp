@@ -73,16 +73,19 @@ int Silisizer::silisize(const char *workdir) {
   for (int cur_iter = 0; true; cur_iter++) {
     // Run timer to get violating paths (one per endpoint)
     std::cout << "Running timer..." << std::endl;
+
+    sta::StringSeq group_names;
+
     sta::PathEndSeq ends = sta_->findPathEnds(
         /*exception from*/ nullptr, /*exception through*/ nullptr,
-        /*exception to*/ nullptr, /*unconstrained*/ false, /*corner*/ nullptr,
+        /*exception to*/ nullptr, /*unconstrained*/ false, /*scenes*/ sta_->scenes(),
         /*min_max*/ sta::MinMaxAll::max(),
         /*group_count*/ 10000, /*endpoint_count*/ 1,
         /*unique_pins*/ true,
         /*unique_edges*/ true,
         /*min_slack*/ -1.0e+30, /*max_slack*/ 0.0,
         /*sort_by_slack*/ false,
-        /*groups->size() ? groups :*/ nullptr,
+        /*groups->size() ? groups :*/ group_names,
         /*setup*/ true, /*hold*/ false,
         /*recovery*/ false, /*removal*/ false,
         /*clk_gating_setup*/ false, /*clk_gating_hold*/ false);
@@ -286,9 +289,12 @@ int Silisizer::silisize(const char *workdir) {
 }
 
 // Remove escape characters from JSON output
-static std::string jsonName(const char *s) {
+static std::string jsonName(std::string_view s) {
+  const char *p = s.data();
+  const char *e = s.data() + s.length();
   std::string out;
-  for (; *s; ++s) if (*s != '\\') out.push_back(*s);
+  out.reserve(s.length());
+  for (; p != e; ++p) if (*p != '\\') out.push_back(*p);
   return out;
 }
 
