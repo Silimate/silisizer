@@ -74,7 +74,7 @@ int Silisizer::silisize(const char *workdir) {
     // Run timer to get violating paths (one per endpoint)
     std::cout << "Running timer..." << std::endl;
 
-    sta::StringSeq group_names;
+    sta::StringSeq group_names;  // empty = report all path groups
 
     sta::PathEndSeq ends = sta_->findPathEnds(
         /*exception from*/ nullptr, /*exception through*/ nullptr,
