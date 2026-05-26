@@ -290,11 +290,9 @@ int Silisizer::silisize(const char *workdir) {
 
 // Remove escape characters from JSON output
 static std::string jsonName(std::string_view s) {
-  const char *p = s.data();
-  const char *e = s.data() + s.length();
   std::string out;
   out.reserve(s.length());
-  for (; p != e; ++p) if (*p != '\\') out.push_back(*p);
+  for (char c : s) if (c != '\\') out.push_back(c);
   return out;
 }
 
