@@ -59,6 +59,13 @@
     "typeinfo": "cpp",
     "variant": "cpp",
     "vector": "cpp",
-    "algorithm": "cpp"
+    "algorithm": "cpp",
+    "csignal": "cpp",
+    "memory": "cpp",
+    "forward_list": "cpp",
+    "numbers": "cpp",
+    "print": "cpp",
+    "span": "cpp",
+    "stack": "cpp"
   }
 }
