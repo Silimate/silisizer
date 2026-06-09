@@ -171,11 +171,15 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
   // path does not exist once the build is packaged and extracted elsewhere, so
   // search next to the executable first (the bundled copy), then fall back to
   // the build-time path, $TCL_LIBRARY and a few standard locations.
+  //
+  // Tclreadline_Init() above already created the read-only ::tclreadline::library
+  // variable, so tclreadlineInit.tcl's own "if {![info exists
+  // tclreadline::library]}" guard skips its dlopen of libtclreadline. That keeps
+  // tclreadline working in a relocated install where the shared library is only
+  // reachable via the executable's RPATH. (Do not try to set that variable here:
+  // it is read-only and assigning to it aborts this whole script.)
   static const char *tclreadline_loader =
     "namespace eval ::tclreadline {}\n"
-    // Pretend the C library is already loaded so ::tclreadline::Init does not
-    // try to dlopen libtclreadline (it is statically referenced by this binary).
-    "set ::tclreadline::library {builtin}\n"
     "proc ::tclreadline::_locate_init {} {\n"
     "  set bases [list [file join [file dirname [info nameofexecutable]] .. lib] {" TCLRL_LIBRARY "} /usr/local/lib /usr/lib]\n"
     "  if {[info exists ::env(TCL_LIBRARY)]} { lappend bases $::env(TCL_LIBRARY) [file join $::env(TCL_LIBRARY) ..] }\n"
@@ -192,7 +196,8 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
     "} else {\n"
     "  puts stderr {tclreadline: tclreadlineInit.tcl not found; interactive line editing disabled}\n"
     "}\n";
-  Tcl_Eval(interp, tclreadline_loader);
+  if (Tcl_Eval(interp, tclreadline_loader) != TCL_OK)
+    fprintf(stderr, "tclreadline: setup failed: %s\n", Tcl_GetStringResult(interp));
 #endif
 
   // Define swig commands.

@@ -125,6 +125,7 @@ jobs:
             --platform linux/amd64 \
             alpine:3.20 sh -c '
               set -ex
+              set -o pipefail
               mkdir -p /work
               tar xzf /src/silisizer-anylinux-amd64.tar.gz -C /work
               cp /src/tests/tclreadline/test_tclreadline.tcl /work/
@@ -298,6 +299,7 @@ jobs:
             --platform linux/amd64 \
             ubuntu:22.04 bash -c '
               set -ex
+              set -o pipefail
               mkdir -p /work
               tar xzf /src/silisizer-manylinux2014-amd64.tar.gz -C /work
               cp /src/tests/tclreadline/test_tclreadline.tcl /work/

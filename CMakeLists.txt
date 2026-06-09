@@ -98,6 +98,7 @@ if (USE_TCL_READLINE)
     tclreadline-2.3.6
     tclreadline-2.3.7
     tclreadline-2.3.8
+    tclreadline-2.4.1
     )
   find_library(TCL_READLINE_LIBRARY
     NAMES tclreadline ${TCL_READLINE_POSSIBLE_NAMES}
