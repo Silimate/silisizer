@@ -50,8 +50,9 @@ jobs:
               autoreconf -fi
               # --with-tk=no: tclreadline only needs Tk for the optional
               # wishrl target (not built here). Alpine has no Tk dev package,
-              # so skipping Tk detection avoids the "Can't find Tk libraries"
-              # configure error.
+              # so skip Tk detection to avoid the configure error about
+              # missing Tk libraries. (Avoid apostrophes/quotes here: this
+              # whole script is single-quoted into sh -c.)
               ./configure --prefix=/usr/local \
                 --with-tcl=/usr/lib \
                 --with-tk=no \
@@ -226,8 +227,9 @@ jobs:
               autoreconf -fi
               # --with-tk=no: tclreadline only needs Tk for the optional
               # wishrl target (not built here). The Tcl built above has no Tk,
-              # so skipping Tk detection avoids the "Can't find Tk libraries"
-              # configure error.
+              # so skip Tk detection to avoid the configure error about
+              # missing Tk libraries. (Avoid apostrophes/quotes here: this
+              # whole script is single-quoted into bash -c.)
               ./configure --prefix=/usr/local \
                 --with-tcl=/usr/local/lib \
                 --with-tk=no \
