@@ -86,6 +86,11 @@ extern int Sta_Init(Tcl_Interp *interp);
 namespace sta {
 // extern const char *silisizer_tcl_inits[];
 extern const char *tcl_inits[];
+#if TCL_READLINE
+// tclreadline Tcl scripts (Setup + Completer + completer hookup) encoded into
+// the executable by TclEncode.tcl (see SilisizerTclReadlineInitVar.cc).
+extern const char *tclreadline_inits[];
+#endif
 }  // namespace sta
 
 // "Arguments" passed to staTclAppInit.
@@ -157,47 +162,28 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
   }
 
 #if TCL_READLINE
-  // Initialize the C side of tclreadline. The library is linked into this
-  // binary, so we also register it as a static package and (below) tell the Tcl
-  // init script to skip its own dlopen of libtclreadline. This is what lets
-  // tclreadline keep working in a relocated/packaged install where the shared
-  // library is only reachable via the executable's RPATH.
+  // Initialize the C side of tclreadline and register it as a static package.
+  // The library is linked into this binary (reachable via the executable's
+  // RPATH in a packaged install), so the Tcl scripts below skip their own
+  // dlopen of libtclreadline.
   if (Tclreadline_Init(interp) == TCL_ERROR)
     return TCL_ERROR;
   Tcl_StaticPackage(interp, "tclreadline", Tclreadline_Init, Tclreadline_SafeInit);
 
-  // Locate and source tclreadlineInit.tcl (which sources tclreadlineSetup.tcl
-  // and thereby defines ::tclreadline::Loop). The compile-time TCLRL_LIBRARY
-  // path does not exist once the build is packaged and extracted elsewhere, so
-  // search next to the executable first (the bundled copy), then fall back to
-  // the build-time path, $TCL_LIBRARY and a few standard locations.
+  // The tclreadline Tcl scripts (the interactive ::tclreadline::Loop defined in
+  // tclreadlineSetup.tcl plus the command completer in tclreadlineCompleter.tcl)
+  // are compiled directly into this binary as sta::tclreadline_inits, so there
+  // is no external tclreadlineInit.tcl/Setup.tcl to locate at run time. Decode
+  // and evaluate them now; on failure we fall back to Tcl_Main's plain REPL.
   //
   // Tclreadline_Init() above already created the read-only ::tclreadline::library
-  // variable, so tclreadlineInit.tcl's own "if {![info exists
-  // tclreadline::library]}" guard skips its dlopen of libtclreadline. That keeps
-  // tclreadline working in a relocated install where the shared library is only
-  // reachable via the executable's RPATH. (Do not try to set that variable here:
-  // it is read-only and assigning to it aborts this whole script.)
-  static const char *tclreadline_loader =
-    "namespace eval ::tclreadline {}\n"
-    "proc ::tclreadline::_locate_init {} {\n"
-    "  set bases [list [file join [file dirname [info nameofexecutable]] .. lib] {" TCLRL_LIBRARY "} /usr/local/lib /usr/lib]\n"
-    "  if {[info exists ::env(TCL_LIBRARY)]} { lappend bases $::env(TCL_LIBRARY) [file join $::env(TCL_LIBRARY) ..] }\n"
-    "  foreach base $bases {\n"
-    "    set cands [list [file join $base tclreadlineInit.tcl]]\n"
-    "    foreach g [lsort -decreasing [glob -nocomplain [file join $base tclreadline* tclreadlineInit.tcl]]] { lappend cands $g }\n"
-    "    foreach cand $cands { if {[file exists $cand]} { return $cand } }\n"
-    "  }\n"
-    "  return {}\n"
-    "}\n"
-    "set ::tclreadline::_init_script [::tclreadline::_locate_init]\n"
-    "if {$::tclreadline::_init_script ne {}} {\n"
-    "  if {[catch {source $::tclreadline::_init_script} ::tclreadline::_err]} { puts stderr \"tclreadline: failed to load $::tclreadline::_init_script: $::tclreadline::_err\" }\n"
-    "} else {\n"
-    "  puts stderr {tclreadline: tclreadlineInit.tcl not found; interactive line editing disabled}\n"
-    "}\n";
-  if (Tcl_Eval(interp, tclreadline_loader) != TCL_OK)
-    fprintf(stderr, "tclreadline: setup failed: %s\n", Tcl_GetStringResult(interp));
+  // variable, so the scripts skip their own dlopen of libtclreadline (which is
+  // statically linked here anyway).
+  char *tclreadline_init = sta::unencode(sta::tclreadline_inits);
+  if (Tcl_Eval(interp, tclreadline_init) != TCL_OK)
+    fprintf(stderr, "tclreadline: embedded init failed: %s\n",
+            Tcl_GetStringResult(interp));
+  delete [] tclreadline_init;
 #endif
 
   // Define swig commands.

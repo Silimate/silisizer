@@ -107,11 +107,8 @@ jobs:
               TCL_LIB_DIR=$(find /usr/lib /usr/local/lib -maxdepth 1 -name "tcl8.6" -type d 2>/dev/null | head -1)
               [ -d "$TCL_LIB_DIR" ] && cp -r "$TCL_LIB_DIR" $STAGE/lib/tcl8.6
 
-              # Bundle tclreadline scripts (tclreadlineInit.tcl etc.) so the
-              # interactive prompt works in the relocated install.
-              for d in /usr/local/lib/tclreadline*; do
-                [ -d "$d" ] && cp -r "$d" "$STAGE/lib/"
-              done
+              # The tclreadline Tcl scripts are embedded in the silisizer
+              # binary, so only the shared library (bundled above) is needed.
 
               for f in "$STAGE"/bin/*; do
                 [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
@@ -289,11 +286,8 @@ jobs:
               echo "TCL_LIB_DIR: $TCL_LIB_DIR"
               [ -d "$TCL_LIB_DIR" ] && cp -a "$TCL_LIB_DIR" "$STAGE/lib/tcl8.6"
 
-              # Bundle tclreadline scripts (tclreadlineInit.tcl etc.) so the
-              # interactive prompt works in the relocated install.
-              for d in /usr/local/lib/tclreadline*; do
-                [ -d "$d" ] && cp -a "$d" "$STAGE/lib/"
-              done
+              # The tclreadline Tcl scripts are embedded in the silisizer
+              # binary, so only the shared library (bundled above) is needed.
 
               for f in "$STAGE"/bin/*; do
                 [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
@@ -432,11 +426,8 @@ jobs:
           # Bundle Tcl 8.6 library scripts
           cp -r "$(brew --prefix tcl-tk@8)/lib/tcl8.6" $STAGE/lib/tcl8.6
 
-          # Bundle tclreadline scripts (tclreadlineInit.tcl etc.) so the
-          # interactive prompt works in the relocated install.
-          for d in /usr/local/lib/tclreadline*; do
-            [ -d "$d" ] && cp -R "$d" "$STAGE/lib/"
-          done
+          # The tclreadline Tcl scripts are embedded in the silisizer binary,
+          # so only the shared library (bundled above) is needed.
 
           # install_name_tool invalidates the code signature; arm64 macOS
           # refuses to run binaries/dylibs with a stale signature, so re-sign

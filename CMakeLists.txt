@@ -152,6 +152,31 @@ if (WIN32)
   add_compile_definitions(WIN32_LEAN_AND_MEAN)
 endif()
 
+# Embed the tclreadline Tcl scripts (interactive Loop + command completer) into
+# the executable so the interactive prompt has no external file dependency.
+# They are encoded into a C string array (named tclreadline_inits in namespace
+# sta) exactly like OpenSTA's own tcl_inits, then unencoded and evaluated at
+# startup. This removes the need to locate tclreadlineInit.tcl/Setup.tcl on disk.
+set(SILISIZER_TCLRL_INIT "")
+if (TCL_READLINE)
+  set(SILISIZER_TCLRL_TCL_FILES
+    ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineSetup.tcl
+    ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineCompleter.tcl
+    ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineEmbedInit.tcl
+    )
+  set(SILISIZER_TCLRL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclReadlineInitVar.cc)
+  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
+  if (TCLSH_EXECUTABLE)
+    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  else()
+    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  endif()
+  add_custom_command(OUTPUT ${SILISIZER_TCLRL_INIT}
+    COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCLRL_INIT} tclreadline_inits ${SILISIZER_TCLRL_TCL_FILES}
+    DEPENDS ${SILISIZER_TCLRL_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
+    )
+endif()
+
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
   ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
@@ -177,7 +202,7 @@ target_include_directories(silisizer PUBLIC
   ${TCL_HEADER_DIR}
   $<INSTALL_INTERFACE:include>)
 
-  add_executable(silisizer-bin ${PROJECT_SOURCE_DIR}/src/main.cpp)
+  add_executable(silisizer-bin ${PROJECT_SOURCE_DIR}/src/main.cpp ${SILISIZER_TCLRL_INIT})
 set_target_properties(silisizer-bin PROPERTIES OUTPUT_NAME silisizer)
 
 if (MSVC OR WIN32)
