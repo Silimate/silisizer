@@ -211,11 +211,15 @@ jobs:
               # (or nothing), but tclreadline'\''s configure.ac needs >= 2.71 and
               # its committed configure is not standalone (LT_INIT is unexpanded),
               # so autoreconf must be run with a recent autoconf/automake/libtool.
-              curl -L https://ftpmirror.gnu.org/autoconf/autoconf-2.71.tar.gz | tar -xzC /tmp
+              # Use canonical ftp.gnu.org (not the ftpmirror.gnu.org
+              # redirector, which intermittently hands back a bad mirror that
+              # returns an HTML error page instead of the tarball). -f fails on
+              # HTTP errors and --retry rides out transient hiccups.
+              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz | tar -xzC /tmp
               cd /tmp/autoconf-2.71 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
-              curl -L https://ftpmirror.gnu.org/automake/automake-1.16.5.tar.gz | tar -xzC /tmp
+              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar -xzC /tmp
               cd /tmp/automake-1.16.5 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
-              curl -L https://ftpmirror.gnu.org/libtool/libtool-2.4.7.tar.gz | tar -xzC /tmp
+              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/libtool/libtool-2.4.7.tar.gz | tar -xzC /tmp
               cd /tmp/libtool-2.4.7 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
               hash -r
 
