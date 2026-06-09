@@ -1,0 +1,18 @@
+#!/bin/bash
+# Runs the tclreadline assertion script against a silisizer binary.
+#
+# Usage: ./test /path/to/silisizer
+#
+# Used both by ctest (against the freshly built binary) and by the release
+# workflow (against the binary extracted from the packaged tarball) to ensure
+# tclreadline works on every target platform.
+silisizer=$1
+
+set -e
+set -o pipefail
+set -x
+
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+"$silisizer" -exit "$script_dir/test_tclreadline.tcl" | tee out.log
+grep "TCLREADLINE_TEST: PASS" out.log

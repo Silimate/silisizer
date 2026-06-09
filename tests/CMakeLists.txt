@@ -1,4 +1,5 @@
 set(ALL_TESTS
+  tclreadline
   picorv32
 )
 

@@ -53,11 +53,22 @@ jobs:
       - if: ${{ matrix.os.family == 'macos' }}
         name: Brew Dependencies
         run: |
-          cd third_party/opensta
-          brew bundle install
-          brew install ninja
+          (cd third_party/opensta && brew bundle install)
+          brew install ninja readline autoconf automake libtool
+          # macOS has no tclreadline package; build it from source so the
+          # interactive prompt works and the tclreadline test passes.
+          git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
+          cd /tmp/tclreadline
+          autoreconf -fi
+          ./configure --prefix=/usr/local \
+            --with-tcl=$(brew --prefix tcl-tk@8)/lib \
+            --with-tcl-includes=$(brew --prefix tcl-tk@8)/include/tcl-tk \
+            --with-readline-includes=$(brew --prefix readline)/include \
+            --with-readline-library="-L$(brew --prefix readline)/lib -lreadline"
+          make -j$(sysctl -n hw.ncpu)
+          sudo make install
           echo "PATH=$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
-          echo "CMAKE_ARGS=-DTCL_LIBRARY=$(brew --prefix tcl-tk@8)/lib/libtcl8.6.dylib -DTCL_INCLUDE_PATH=$(brew --prefix tcl-tk@8)/include/tcl-tk -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include" >> $GITHUB_ENV
+          echo "CMAKE_ARGS=-DTCL_LIBRARY=$(brew --prefix tcl-tk@8)/lib/libtcl8.6.dylib -DTCL_INCLUDE_PATH=$(brew --prefix tcl-tk@8)/include/tcl-tk -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib -DTCL_READLINE_INCLUDE=/usr/local/include" >> $GITHUB_ENV
       - if: ${{ matrix.os.family == 'linux' }}
         name: Apt Dependencies
         run: |
@@ -95,4 +106,4 @@ jobs:
           ninja
       - run: |
           cd build
-          ctest
+          ctest --output-on-failure
