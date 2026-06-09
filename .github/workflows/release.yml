@@ -48,8 +48,13 @@ jobs:
               git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
               cd /tmp/tclreadline
               autoreconf -fi
+              # --with-tk=no: tclreadline only needs Tk for the optional
+              # wishrl target (not built here). Alpine has no Tk dev package,
+              # so skipping Tk detection avoids the "Can't find Tk libraries"
+              # configure error.
               ./configure --prefix=/usr/local \
                 --with-tcl=/usr/lib \
+                --with-tk=no \
                 --with-tcl-includes=/usr/include \
                 --with-readline-includes=/usr/include \
                 --with-readline-library="-lreadline"
@@ -219,8 +224,13 @@ jobs:
               git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
               cd /tmp/tclreadline
               autoreconf -fi
+              # --with-tk=no: tclreadline only needs Tk for the optional
+              # wishrl target (not built here). The Tcl built above has no Tk,
+              # so skipping Tk detection avoids the "Can't find Tk libraries"
+              # configure error.
               ./configure --prefix=/usr/local \
                 --with-tcl=/usr/local/lib \
+                --with-tk=no \
                 --with-tcl-includes=/usr/local/include \
                 --with-readline-includes=/usr/include \
                 --with-readline-library="-lreadline"
@@ -344,8 +354,12 @@ jobs:
           git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
           cd /tmp/tclreadline
           autoreconf -fi
+          # --with-tk=no: tclreadline only needs Tk for the optional wishrl
+          # target (not built here); skipping Tk detection avoids requiring
+          # tkConfig.sh and prevents pulling Tk/X11 into the bundle.
           ./configure --prefix=/usr/local \
             --with-tcl=$(brew --prefix tcl-tk@8)/lib \
+            --with-tk=no \
             --with-tcl-includes=$(brew --prefix tcl-tk@8)/include/tcl-tk \
             --with-readline-includes=$(brew --prefix readline)/include \
             --with-readline-library="-L$(brew --prefix readline)/lib -lreadline"

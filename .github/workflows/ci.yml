@@ -60,8 +60,12 @@ jobs:
           git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
           cd /tmp/tclreadline
           autoreconf -fi
+          # --with-tk=no: tclreadline only needs Tk for the optional wishrl
+          # target (not built here); skipping Tk detection avoids requiring
+          # tkConfig.sh and prevents pulling Tk/X11 into the build.
           ./configure --prefix=/usr/local \
             --with-tcl=$(brew --prefix tcl-tk@8)/lib \
+            --with-tk=no \
             --with-tcl-includes=$(brew --prefix tcl-tk@8)/include/tcl-tk \
             --with-readline-includes=$(brew --prefix readline)/include \
             --with-readline-library="-L$(brew --prefix readline)/lib -lreadline"
