@@ -21,7 +21,9 @@ namespace silisizer {
 class Silisizer : public sta::Sta {
  public:
   ~Silisizer() {}
-  int silisize(const char *workdir);
+  int silisize(const char *workdir,
+               bool upsize_all = false,
+               bool stop_on_wns_stall = false);
 };
 
 void dumpIcgJson(const char *path);

@@ -33,6 +33,9 @@ namespace silisizer {
 // DEBUG flag
 const bool DEBUG = 0;
 
+// Number of consecutive non-improving timing passes allowed by the WNS policy.
+const int WNS_STALL_ROUND_LIMIT = 3;
+
 // Replace all occurrences of `from` in `str` with `to`
 std::string replaceAll(std::string_view str, std::string_view from,
                        std::string_view to) {
@@ -55,7 +58,9 @@ std::string reverseOpenSTANaming(std::string cellname) {
 }
 
 // Silisizer: resize operator-level cells to resolve timing violations
-int Silisizer::silisize(const char *workdir) {
+int Silisizer::silisize(const char *workdir,
+                        bool upsize_all,
+                        bool stop_on_wns_stall) {
   // Initialize network
   sta::Network* network = this->network();
 
@@ -70,6 +75,7 @@ int Silisizer::silisize(const char *workdir) {
 
   // Iterate until the maximum number of iterations is reached
   double previous_wns = 1;
+  int wns_stall_rounds = 0;
   for (int cur_iter = 0; true; cur_iter++) {
     // Run timer to get violating paths (one per endpoint)
     std::cout << "Running timer..." << std::endl;
@@ -185,7 +191,26 @@ int Silisizer::silisize(const char *workdir) {
       break;
     }
 
-    // Sort top offender list and allow max list size of swaps_per_iter
+    // The WNS policy intentionally stops even while other violating paths may
+    // still benefit from resizing.
+    if (stop_on_wns_stall && cur_iter > 0) {
+      double delta_wns = wns - previous_wns;
+      if (delta_wns <= 0.0)
+        wns_stall_rounds++;
+      else
+        wns_stall_rounds = 0;
+
+      if (wns_stall_rounds >= WNS_STALL_ROUND_LIMIT) {
+        std::cout << "WNS did not improve for " << wns_stall_rounds
+                  << " consecutive rounds." << std::endl
+                  << "Final WNS: " << -(wns * 1e12) << std::endl
+                  << "WNS optimization done!" << std::endl;
+        break;
+      }
+    }
+
+    // Sort the offender list and, unless requested otherwise, limit it to the
+    // adaptive number of swaps for this iteration.
     std::list<std::pair<sta::Instance*, double>> offenders;
     for (const auto& pair : offending_inst_score)
       offenders.push_back(pair);
@@ -193,7 +218,8 @@ int Silisizer::silisize(const char *workdir) {
                       const std::pair<sta::Instance*, double>& b) {
       return a.second > b.second;
     });
-    offenders.resize(std::min(swaps_per_iter, (int) offenders.size()));
+    if (!upsize_all)
+      offenders.resize(std::min(swaps_per_iter, (int) offenders.size()));
 
     // DEBUG: Print the number of offenders
     if (DEBUG) std::cout << "offenders: " << offenders.size() << std::endl;
@@ -257,8 +283,8 @@ int Silisizer::silisize(const char *workdir) {
       std::cout << "Delta WNS frac: " << delta_wns_frac << std::endl;
     }
 
-    // Set effort based on delta WNS
-    if (delta_wns_frac < 0.1 && swaps_per_iter < 1048576)
+    // Set effort based on delta WNS when adaptive batching is enabled.
+    if (!upsize_all && delta_wns_frac < 0.1 && swaps_per_iter < 1048576)
       swaps_per_iter *= 2;
 
     // Print the current iteration and WNS
