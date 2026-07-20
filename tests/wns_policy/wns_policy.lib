@@ -1,0 +1,85 @@
+library(wns_policy) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+
+  cell(FIXED_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("10.0");
+        }
+        cell_fall(scalar) {
+          values("10.0");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+
+  cell(BUF_sp0_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("0.5");
+        }
+        cell_fall(scalar) {
+          values("0.5");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+
+  cell(BUF_sp1_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("0.1");
+        }
+        cell_fall(scalar) {
+          values("0.1");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+}
