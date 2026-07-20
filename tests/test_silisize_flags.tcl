@@ -27,6 +27,8 @@ foreach command [list \
 
 if {![catch {sta::silisize -unknown $workdir} result]} {
     lappend failures "sta::silisize accepted an unknown flag"
+} elseif {$result ne {unknown option "-unknown": must be -all or -wns}} {
+    lappend failures "sta::silisize returned a misleading error: $result"
 }
 
 file delete -force $workdir

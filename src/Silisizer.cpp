@@ -110,7 +110,7 @@ int Silisizer::silisize(const char *workdir,
 
     // Initialize variables
     std::unordered_map<sta::Instance*, double> offending_inst_score;
-    double wns = 0.0f;
+    double wns = 0.0;
 
     // For each path with negative slack
     for (sta::PathEnd* pathend : ends) {
