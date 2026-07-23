@@ -24,10 +24,28 @@ add_test(
 )
 
 add_test(
+  NAME resized_cells_tsv
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_resized_cells_tsv.tcl
+)
+
+add_test(
   NAME wns_policy
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wns_policy
   COMMAND
     $<TARGET_FILE:silisizer-bin>
     -exit
     ${CMAKE_CURRENT_SOURCE_DIR}/wns_policy/test_wns_policy.tcl
+)
+
+add_test(
+  NAME all_policy
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wns_policy
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/wns_policy/test_all_policy.tcl
 )
