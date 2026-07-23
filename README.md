@@ -26,3 +26,7 @@ The policies can be combined:
 ```tcl
 sta::silisize -all -wns workdir
 ```
+
+`silisize` always creates `workdir/data/resized_cells.tsv` (header only when no
+cells are resized) so Preqorsor can back-annotate SPEED==2 runs. Failure to
+create that file is a hard error.

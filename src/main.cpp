@@ -132,9 +132,14 @@ static int silisizeTclCmd(ClientData,
     return TCL_ERROR;
   }
 
-  Tcl_SetObjResult(
-      interp,
-      Tcl_NewIntObj(sizer->silisize(workdir, upsize_all, stop_on_wns_stall)));
+  int status = sizer->silisize(workdir, upsize_all, stop_on_wns_stall);
+  Tcl_SetObjResult(interp, Tcl_NewIntObj(status));
+  if (status != 0) {
+    std::string message =
+        "silisize failed with status " + std::to_string(status);
+    Tcl_SetObjResult(interp, Tcl_NewStringObj(message.c_str(), -1));
+    return TCL_ERROR;
+  }
   return TCL_OK;
 }
 

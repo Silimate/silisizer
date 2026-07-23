@@ -17,6 +17,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <filesystem>
 #include <fstream>
 #include <iostream>
 #include <list>
@@ -67,11 +68,25 @@ int Silisizer::silisize(const char *workdir,
   // Effort variables (multiply swaps per iteration by 2 until complete)
   int swaps_per_iter = 1;
 
-  // Output the header for back-annotation CSV
+  // Output the header for back-annotation TSV. Preqorsor always reads this
+  // file after SPEED==2 STA, so failing to create it must be a hard error.
   std::string workdir_str = workdir;
-  std::ofstream transforms(workdir_str + "/data/resized_cells.tsv");
-  if (transforms.good())
-    transforms << "Scope" << "\t" << "Instance" << std::endl;
+  std::string data_dir = workdir_str + "/data";
+  std::string transforms_path = data_dir + "/resized_cells.tsv";
+  std::error_code ec;
+  std::filesystem::create_directories(data_dir, ec);
+  if (ec) {
+    std::cerr << "silisize: cannot create " << data_dir << ": " << ec.message()
+              << std::endl;
+    return 1;
+  }
+  std::ofstream transforms(transforms_path);
+  if (!transforms.good()) {
+    std::cerr << "silisize: cannot open " << transforms_path << " for write"
+              << std::endl;
+    return 1;
+  }
+  transforms << "Scope" << "\t" << "Instance" << std::endl;
 
   // Iterate until the maximum number of iterations is reached
   double previous_wns = 1;
@@ -269,8 +284,7 @@ int Silisizer::silisize(const char *workdir,
       Sta::sta()->replaceCell(offender, to_cell);
       // Record the transformation for back-annotation in the folded model
       // (unique module name/cell name)
-      if (transforms.good())
-        transforms << parentcellname << "\t" << cellname << std::endl;
+      transforms << parentcellname << "\t" << cellname << std::endl;
     }
 
     // Get delta WNS and delta WNS fraction
