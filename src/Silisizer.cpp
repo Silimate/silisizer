@@ -88,6 +88,18 @@ int Silisizer::silisize(const char *workdir,
   }
   transforms << "Scope" << "\t" << "Instance" << std::endl;
 
+  // Flush/close the transforms file and surface any write failure (disk full,
+  // NFS stale handle, flush error) as a hard error, so Preqorsor never
+  // back-annotates a truncated resized_cells.tsv.
+  auto close_transforms = [&transforms, &transforms_path]() -> int {
+    transforms.close();
+    if (transforms.fail()) {
+      std::cerr << "silisize: failed writing " << transforms_path << std::endl;
+      return 1;
+    }
+    return 0;
+  };
+
   // Iterate until the maximum number of iterations is reached
   double previous_wns = 1;
   int wns_stall_rounds = 0;
@@ -277,8 +289,7 @@ int Silisizer::silisize(const char *workdir,
                   << "This should never happen!" << std::endl
                   << "Final WNS: " << -(wns * 1e12) << std::endl
                   << "Timing optimization partially done!" << std::endl;
-        transforms.close();
-        return 0;
+        return close_transforms();
       }
       // Swap the cell with speed 1 cell
       Sta::sta()->replaceCell(offender, to_cell);
@@ -324,8 +335,7 @@ int Silisizer::silisize(const char *workdir,
   }
   
   // Clean up
-  transforms.close();
-  return 0;
+  return close_transforms();
 }
 
 // Remove escape characters from JSON output
