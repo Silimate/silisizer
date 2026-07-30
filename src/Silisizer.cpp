@@ -28,6 +28,7 @@
 #include "sta/PathEnd.hh"
 #include "sta/PortDirection.hh"
 #include "sta/Sta.hh"
+#include "sta/TimingRole.hh"
 
 namespace silisizer {
 
@@ -164,6 +165,8 @@ int Silisizer::silisize(const char *workdir,
         sta::Pin *pin = p->pin(this);
         // Get previous arc
         sta::TimingArc* prev_arc = p->prevArc(this);
+        // Past a transparent latch the path is in a different launch cycle
+        if (prev_arc && prev_arc->role()->isLatchDtoQ()) break;
         // Get the arc delay
         sta::Delay delay = 0.0f;
         if (prev_arc) delay = prev_arc->intrinsicDelay();
