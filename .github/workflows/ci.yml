@@ -28,90 +28,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build_and_test:
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          [
-            {
-              name: "Ubuntu 22.04",
-              family: "linux",
-              runner: "ubuntu-22.04",
-              arch: "x86_64",
-            },
-            {
-              name: "macOS 14",
-              family: "macos",
-              runner: "macos-14",
-              arch: "arm64",
-            },
-          ]
-    name: Build and Test | ${{ matrix.os.name }} | ${{ matrix.os.arch }}
-    runs-on: ${{ matrix.os.runner }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: true
-      - if: ${{ matrix.os.family == 'macos' }}
-        name: Brew Dependencies
-        run: |
-          (cd third_party/opensta && brew bundle install)
-          brew install ninja readline autoconf automake libtool
-          # macOS has no tclreadline package; build it from source so the
-          # interactive prompt works and the tclreadline test passes.
-          git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
-          cd /tmp/tclreadline
-          autoreconf -fi
-          # --with-tk=no: tclreadline only needs Tk for the optional wishrl
-          # target (not built here); skipping Tk detection avoids requiring
-          # tkConfig.sh and prevents pulling Tk/X11 into the build.
-          ./configure --prefix=/usr/local \
-            --with-tcl=$(brew --prefix tcl-tk@8)/lib \
-            --with-tk=no \
-            --with-tcl-includes=$(brew --prefix tcl-tk@8)/include/tcl-tk \
-            --with-readline-includes=$(brew --prefix readline)/include \
-            --with-readline-library="-L$(brew --prefix readline)/lib -lreadline"
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-          echo "PATH=$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH" >> $GITHUB_ENV
-          echo "CMAKE_ARGS=-DTCL_LIBRARY=$(brew --prefix tcl-tk@8)/lib/libtcl8.6.dylib -DTCL_INCLUDE_PATH=$(brew --prefix tcl-tk@8)/include/tcl-tk -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib -DTCL_READLINE_INCLUDE=/usr/local/include" >> $GITHUB_ENV
-      - if: ${{ matrix.os.family == 'linux' }}
-        name: Apt Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-              wget \
-              cmake \
-              gcc \
-              tcl-dev \
-              tcl-tclreadline \
-              libeigen3-dev \
-              swig \
-              bison \
-              flex \
-              libfl-dev \
-              libdwarf-dev \
-              libdw-dev \
-              libelf-dev \
-              elfutils \
-              automake \
-              autotools-dev \
-              ninja-build
-      - if: ${{ matrix.os.family == 'linux' }}
-        name: Cudd (Linux)
-        run: |
-          curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzvC .
-          cd cudd-3.0.0
-          ./configure
-          make -j$(nproc)
-          sudo make install
-      - run: |
-          mkdir -p build
-          cd build
-          cmake -G Ninja -DCMAKE_BUILD_TYPE=Release $CMAKE_ARGS ..
-          ninja
-      - run: |
-          cd build
-          ctest --output-on-failure
+  build-and-test:
+    uses: Silimate/actions/.github/workflows/cpp-cmake-ci.yml@v1
+    with:
+      install-cudd: true
+      cmake-generator: Ninja
+      apt-packages: >-
+        wget cmake gcc tcl-dev tcl-tclreadline libeigen3-dev swig bison flex
+        libfl-dev libdwarf-dev libdw-dev libelf-dev elfutils automake
+        autotools-dev ninja-build
+      macos-setup: |
+        (cd third_party/OpenSTA && brew bundle install)
+        brew install ninja readline autoconf automake libtool
+
+        TCL_PREFIX=$(brew --prefix tcl-tk@8)
+        READLINE_PREFIX=$(brew --prefix readline)
+
+        # macOS packages no tclreadline, so the interactive prompt and the
+        # tclreadline test need it built from source
+        TCL_LIB_DIR="$TCL_PREFIX/lib" \
+        TCL_INCLUDE_DIR="$TCL_PREFIX/include/tcl-tk" \
+        READLINE_INCLUDE_DIR="$READLINE_PREFIX/include" \
+        READLINE_LIBRARY="-L$READLINE_PREFIX/lib -lreadline" \
+          ./.silimate-actions/scripts/install-tclreadline.sh
+
+        echo "PATH=$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH" >> "$GITHUB_ENV"
+        # One line: $GITHUB_ENV needs heredoc syntax for multi-line values
+        echo "CMAKE_ARGS=-DTCL_LIBRARY=$TCL_PREFIX/lib/libtcl8.6.dylib -DTCL_INCLUDE_PATH=$TCL_PREFIX/include/tcl-tk -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib -DTCL_READLINE_INCLUDE=/usr/local/include" >> "$GITHUB_ENV"

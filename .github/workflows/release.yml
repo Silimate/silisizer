@@ -4,523 +4,116 @@ on:
   push:
     branches:
       - main
+  pull_request:
   workflow_dispatch:
+    inputs:
+      draft:
+        description: Publish a draft release and leave the `latest` tag alone.
+        type: boolean
+        default: false
 
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
-  build-linux:
-    runs-on: ubuntu-latest
-    name: Build anylinux amd64 tarball (musl)
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Build in Alpine container
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/src" \
-            -w /src \
-            --platform linux/amd64 \
-            alpine:3.20 sh -c '
-              set -ex
-              apk add --no-cache \
-                build-base cmake ninja git curl \
-                tcl-dev swig bison flex flex-dev \
-                libdwarf-dev elfutils-dev zlib-dev \
-                readline-dev eigen-dev \
-                automake autoconf libtool patchelf
-              curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzC /tmp
-              cd /tmp/cudd-3.0.0
-              ./configure
-              make -j$(nproc)
-              make install
-              cd /src
-
-              # Build tclreadline (GNU readline support for the interactive Tcl
-              # prompt) from source. Alpine has no tclreadline package, so it
-              # must be compiled against the system tcl + readline and installed
-              # to /usr/local where CMake and the bundling step can find it.
-              git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
-              cd /tmp/tclreadline
-              autoreconf -fi
-              # --with-tk=no: tclreadline only needs Tk for the optional
-              # wishrl target (not built here). Alpine has no Tk dev package,
-              # so skip Tk detection to avoid the configure error about
-              # missing Tk libraries. (Avoid apostrophes/quotes here: this
-              # whole script is single-quoted into sh -c.)
-              ./configure --prefix=/usr/local \
-                --with-tcl=/usr/lib \
-                --with-tk=no \
-                --with-tcl-includes=/usr/include \
-                --with-readline-includes=/usr/include \
-                --with-readline-library="-lreadline"
-              make -j$(nproc)
-              make install
-              cd /src
-
-              git config --global --add safe.directory /src
-              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
-              cmake -G Ninja \
-                -DCMAKE_BUILD_TYPE=Release \
-                -DCMAKE_INSTALL_PREFIX=/usr/local \
-                -DBUILD_SHARED_LIBS=OFF \
-                -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.so \
-                -DTCL_READLINE_INCLUDE=/usr/local/include \
-                -S . -B build
-              cmake --build build -j$(nproc)
-              DESTDIR=/tmp/install cmake --install build
-
-              # Remove sta binary (silisizer is a superset)
-              rm -f /tmp/install/usr/local/bin/sta
-
-              # Bundle shared library dependencies and set RPATHs
-              STAGE=/tmp/install/usr/local
-              mkdir -p "$STAGE/lib"
-
-              copy_deps() {
-                for f in "$@"; do
-                  [ -f "$f" ] || continue
-                  ldd "$f" 2>/dev/null | awk "/=>/ {print \$3}" | while read -r lib; do
-                    [ -f "$lib" ] || continue
-                    base=$(basename "$lib")
-                    case "$base" in ld-musl-*|libc.musl-*) continue ;; esac
-                    [ -f "$STAGE/lib/$base" ] || cp "$lib" "$STAGE/lib/$base"
-                  done
-                done
-              }
-
-              # Iterate to a fixed point so transitive dependencies (e.g.
-              # libtclreadline -> libreadline -> libncurses) are all bundled.
-              while :; do
-                before=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-                copy_deps "$STAGE"/bin/* "$STAGE"/lib/*.so*
-                after=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-                [ "$before" = "$after" ] && break
-              done
-
-              # Bundle Tcl 8.6 library scripts (Alpine installs to /usr/lib)
-              TCL_LIB_DIR=$(find /usr/lib /usr/local/lib -maxdepth 1 -name "tcl8.6" -type d 2>/dev/null | head -1)
-              [ -d "$TCL_LIB_DIR" ] && cp -r "$TCL_LIB_DIR" $STAGE/lib/tcl8.6
-
-              # The tclreadline Tcl scripts are embedded in the silisizer
-              # binary, so only the shared library (bundled above) is needed.
-
-              for f in "$STAGE"/bin/*; do
-                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
-              done
-              for f in "$STAGE"/lib/*.so*; do
-                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN" "$f" 2>/dev/null || true
-              done
-
-              cd /tmp/install
-              tar czf /src/silisizer-anylinux-amd64.tar.gz .
-            '
-
-      - name: Smoke test packaged tclreadline (fresh Alpine)
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/src" \
-            --platform linux/amd64 \
-            alpine:3.20 sh -c '
-              set -ex
-              set -o pipefail
-              mkdir -p /work
-              tar xzf /src/silisizer-anylinux-amd64.tar.gz -C /work
-              cp /src/tests/tclreadline/test_tclreadline.tcl /work/
-              cd /work
-              TCL_LIBRARY=/work/usr/local/lib/tcl8.6 ./usr/local/bin/silisizer -exit ./test_tclreadline.tcl | tee out.log
-              grep "TCLREADLINE_TEST: PASS" out.log
-            '
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: silisizer-anylinux-amd64
-          path: silisizer-anylinux-amd64.tar.gz
-
-  build-manylinux:
-    runs-on: ubuntu-latest
-    name: Build manylinux2014 amd64 tarball (glibc 2.17+)
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Build in CentOS 7 container
-        run: |
-          docker run --rm \
-            -v "${{ github.workspace }}:/src" \
-            -w /src \
-            --platform linux/amd64 \
-            centos:7 bash -c '
-              set -ex
-
-              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
-
-              yum install -y centos-release-scl epel-release
-              sed -i s/mirror.centos.org/vault.centos.org/g /etc/yum.repos.d/*.repo
-              sed -i s/^#.*baseurl=http/baseurl=http/g /etc/yum.repos.d/*.repo
-              sed -i s/^mirrorlist=http/#mirrorlist=http/g /etc/yum.repos.d/*.repo
-
-              yum install -y devtoolset-11-gcc-c++ make git curl \
-                swig3 flex zlib-devel readline-devel eigen3-devel \
-                patchelf elfutils-devel elfutils-libelf-devel \
-                libdwarf-devel binutils-devel m4 perl-core
-
-              # Build cmake >= 3.16 from source (CentOS 7 ships too old)
-              curl -L https://github.com/Kitware/CMake/releases/download/v3.31.4/cmake-3.31.4-linux-x86_64.tar.gz | tar -xzC /opt
-              export PATH=/opt/cmake-3.31.4-linux-x86_64/bin:$PATH
-
-              # Build bison >= 3.x from source
-              curl -L https://ftp.gnu.org/gnu/bison/bison-3.8.2.tar.gz | tar -xzC /tmp
-              cd /tmp/bison-3.8.2 && source /opt/rh/devtoolset-11/enable && ./configure && make -j$(nproc) && make install
-              cd /src
-
-              source /opt/rh/devtoolset-11/enable
-
-              # Build Tcl 8.6 from source (CentOS 7 only ships 8.5)
-              curl -L https://prdownloads.sourceforge.net/tcl/tcl8.6.16-src.tar.gz | tar -xzC /tmp
-              cd /tmp/tcl8.6.16/unix
-              ./configure --prefix=/usr/local --enable-shared
-              make -j$(nproc)
-              make install
-              ln -sf /usr/local/bin/tclsh8.6 /usr/local/bin/tclsh
-              cd /src
-
-              # Build CUDD
-              curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzC /tmp
-              cd /tmp/cudd-3.0.0
-              ./configure
-              make -j$(nproc)
-              make install
-              cd /src
-
-              # Build modern autotools from source. CentOS 7 ships autoconf 2.69
-              # (or nothing), but tclreadline'\''s configure.ac needs >= 2.71 and
-              # its committed configure is not standalone (LT_INIT is unexpanded),
-              # so autoreconf must be run with a recent autoconf/automake/libtool.
-              # Use canonical ftp.gnu.org (not the ftpmirror.gnu.org
-              # redirector, which intermittently hands back a bad mirror that
-              # returns an HTML error page instead of the tarball). -f fails on
-              # HTTP errors and --retry rides out transient hiccups.
-              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/autoconf/autoconf-2.71.tar.gz | tar -xzC /tmp
-              cd /tmp/autoconf-2.71 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
-              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/automake/automake-1.16.5.tar.gz | tar -xzC /tmp
-              cd /tmp/automake-1.16.5 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
-              curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/libtool/libtool-2.4.7.tar.gz | tar -xzC /tmp
-              cd /tmp/libtool-2.4.7 && ./configure --prefix=/usr/local && make -j$(nproc) && make install && cd /src
-              hash -r
-
-              # Build tclreadline (GNU readline support for the interactive Tcl
-              # prompt) against the Tcl 8.6 we just built and the system readline,
-              # installing to /usr/local for CMake and the bundling step.
-              git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
-              cd /tmp/tclreadline
-              autoreconf -fi
-              # --with-tk=no: tclreadline only needs Tk for the optional
-              # wishrl target (not built here). The Tcl built above has no Tk,
-              # so skip Tk detection to avoid the configure error about
-              # missing Tk libraries. (Avoid apostrophes/quotes here: this
-              # whole script is single-quoted into bash -c.)
-              ./configure --prefix=/usr/local \
-                --with-tcl=/usr/local/lib \
-                --with-tk=no \
-                --with-tcl-includes=/usr/local/include \
-                --with-readline-includes=/usr/include \
-                --with-readline-library="-lreadline"
-              make -j$(nproc)
-              make install
-              cd /src
-
-              git config --global --add safe.directory /src
-              git submodule foreach --recursive git config --global --add safe.directory \$toplevel/\$sm_path
-              cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
-                -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.so \
-                -DTCL_READLINE_INCLUDE=/usr/local/include \
-                -S . -B build
-              cmake --build build -j$(nproc)
-              DESTDIR=/tmp/install cmake --install build
-
-              rm -f /tmp/install/usr/local/bin/sta
-
-              STAGE=/tmp/install/usr/local
-              mkdir -p "$STAGE/lib"
-
-              copy_deps() {
-                for f in "$@"; do
-                  [ -f "$f" ] || continue
-                  ldd "$f" 2>/dev/null | awk "/=>/ {print \$3}" | while read -r lib; do
-                    [ -f "$lib" ] || continue
-                    base=$(basename "$lib")
-                    case "$base" in ld-linux*|libc.so*|libdl*|libpthread*|librt*|libm.so*) continue ;; esac
-                    [ -f "$STAGE/lib/$base" ] || cp "$lib" "$STAGE/lib/$base"
-                  done
-                done
-              }
-
-              # ldd must be able to resolve libraries we installed into
-              # /usr/local/lib (libtcl8.6, libtclreadline, ...) which is not on
-              # CentOS 7'\''s default loader path.
-              export LD_LIBRARY_PATH=/usr/local/lib${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}
-
-              # Iterate to a fixed point so transitive dependencies (e.g.
-              # libtclreadline -> libreadline -> libtinfo/libncurses) are bundled.
-              while :; do
-                before=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-                copy_deps "$STAGE"/bin/* "$STAGE"/lib/*.so*
-                after=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-                [ "$before" = "$after" ] && break
-              done
-
-              # Ensure libtcl8.6 and Tcl library scripts are bundled
-              TCL_LIB_DIR=$(find /usr/local/lib -maxdepth 1 -name "tcl8.6" -type d 2>/dev/null | head -1)
-              echo "TCL_LIB_DIR: $TCL_LIB_DIR"
-              [ -d "$TCL_LIB_DIR" ] && cp -a "$TCL_LIB_DIR" "$STAGE/lib/tcl8.6"
-
-              # The tclreadline Tcl scripts are embedded in the silisizer
-              # binary, so only the shared library (bundled above) is needed.
-
-              for f in "$STAGE"/bin/*; do
-                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN/../lib" "$f" 2>/dev/null || true
-              done
-              for f in "$STAGE"/lib/*.so*; do
-                [ -f "$f" ] && patchelf --set-rpath "\$ORIGIN" "$f" 2>/dev/null || true
-              done
-
-              cd /tmp/install
-              tar czf /src/silisizer-manylinux2014-amd64.tar.gz .
-            '
-
-      - name: Smoke test packaged tclreadline (fresh Ubuntu)
-        run: |
-          # Run on a clean glibc distro (no tcl/readline installed) to prove the
-          # manylinux2014 tarball is self-contained and tclreadline works.
-          docker run --rm \
-            -v "${{ github.workspace }}:/src" \
-            --platform linux/amd64 \
-            ubuntu:22.04 bash -c '
-              set -ex
-              set -o pipefail
-              mkdir -p /work
-              tar xzf /src/silisizer-manylinux2014-amd64.tar.gz -C /work
-              cp /src/tests/tclreadline/test_tclreadline.tcl /work/
-              cd /work
-              TCL_LIBRARY=/work/usr/local/lib/tcl8.6 ./usr/local/bin/silisizer -exit ./test_tclreadline.tcl | tee out.log
-              grep "TCLREADLINE_TEST: PASS" out.log
-            '
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: silisizer-manylinux2014-amd64
-          path: silisizer-manylinux2014-amd64.tar.gz
-
-  build-macos:
-    runs-on: macos-15
-    name: Build macOS arm64 tarball
-
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          submodules: true
-
-      - name: Install dependencies
-        run: |
-          brew install cmake ninja tcl-tk@8 swig bison flex readline eigen dwarfutils libelf autoconf automake libtool
-
-      - name: Build CUDD from source
-        run: |
-          curl -L https://raw.githubusercontent.com/davidkebo/cudd/main/cudd_versions/cudd-3.0.0.tar.gz | tar -xzC /tmp
-          cd /tmp/cudd-3.0.0
-          ./configure
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-
-      - name: Build tclreadline from source
-        run: |
-          # macOS has no tclreadline package, so compile it against Homebrew's
-          # tcl-tk@8 + readline and install to /usr/local where CMake and the
-          # dylib-bundling step can find it.
-          git clone --depth 1 --branch v2.4.1 https://github.com/flightaware/tclreadline /tmp/tclreadline
-          cd /tmp/tclreadline
-          autoreconf -fi
-          # --with-tk=no: tclreadline only needs Tk for the optional wishrl
-          # target (not built here); skipping Tk detection avoids requiring
-          # tkConfig.sh and prevents pulling Tk/X11 into the bundle.
-          ./configure --prefix=/usr/local \
-            --with-tcl=$(brew --prefix tcl-tk@8)/lib \
-            --with-tk=no \
-            --with-tcl-includes=$(brew --prefix tcl-tk@8)/include/tcl-tk \
-            --with-readline-includes=$(brew --prefix readline)/include \
-            --with-readline-library="-L$(brew --prefix readline)/lib -lreadline"
-          make -j$(sysctl -n hw.ncpu)
-          sudo make install
-
-      - name: Build silisizer
-        run: |
-          export PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
-          cmake -G Ninja \
-            -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_INSTALL_PREFIX=/usr/local \
-            -DBUILD_SHARED_LIBS=OFF \
-            -DTCL_LIBRARY=$(brew --prefix tcl-tk@8)/lib/libtcl8.6.dylib \
-            -DTCL_INCLUDE_PATH=$(brew --prefix tcl-tk@8)/include/tcl-tk \
-            -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib \
-            -DTCL_READLINE_INCLUDE=/usr/local/include \
-            -DLIBDWARF_INCLUDE_DIR=$(brew --prefix dwarfutils)/include/libdwarf-0 \
-            -DLIBELF_INCLUDE_DIR=$(brew --prefix libelf)/include/libelf \
-            -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include \
-            -S . -B build
-          cmake --build build -j$(sysctl -n hw.ncpu)
-          DESTDIR=/tmp/install cmake --install build
-
-      - name: Remove sta binary
-        run: rm -f /tmp/install/usr/local/bin/sta
-
-      - name: Bundle non-system dylibs
-        run: |
-          STAGE=/tmp/install/usr/local
-          mkdir -p "$STAGE/lib"
-
-          bundle_dylibs() {
-            for f in "$@"; do
-              [ -f "$f" ] || continue
-              otool -L "$f" 2>/dev/null | awk 'NR>1 {print $1}' | while read -r lib; do
-                [ -f "$lib" ] || continue
-                case "$lib" in /usr/lib/*|/System/*) continue ;; esac
-                base=$(basename "$lib")
-                if [ ! -f "$STAGE/lib/$base" ]; then
-                  cp "$lib" "$STAGE/lib/$base"
-                fi
-                install_name_tool -change "$lib" "@rpath/$base" "$f" 2>/dev/null || true
-              done
-            done
-          }
-
-          # Iterate to a fixed point so transitive dependencies (e.g.
-          # libtclreadline -> libreadline) are all bundled and rewritten.
-          while :; do
-            before=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-            bundle_dylibs "$STAGE"/bin/* "$STAGE"/lib/*.dylib
-            after=$(ls -1 "$STAGE"/lib 2>/dev/null | wc -l)
-            [ "$before" = "$after" ] && break
-          done
-
-          for f in "$STAGE"/bin/*; do
-            [ -f "$f" ] && install_name_tool -add_rpath "@executable_path/../lib" "$f" 2>/dev/null || true
-          done
-          for f in "$STAGE"/lib/*.dylib; do
-            [ -f "$f" ] && install_name_tool -add_rpath "@loader_path" "$f" 2>/dev/null || true
-          done
-
-          # Bundle Tcl 8.6 library scripts
-          cp -r "$(brew --prefix tcl-tk@8)/lib/tcl8.6" $STAGE/lib/tcl8.6
-
-          # The tclreadline Tcl scripts are embedded in the silisizer binary,
-          # so only the shared library (bundled above) is needed.
-
-          # install_name_tool invalidates the code signature; arm64 macOS
-          # refuses to run binaries/dylibs with a stale signature, so re-sign
-          # everything ad-hoc.
-          for f in "$STAGE"/bin/* "$STAGE"/lib/*.dylib; do
-            [ -f "$f" ] && codesign --force --sign - "$f" 2>/dev/null || true
-          done
-
-      - name: Create tarball
-        run: |
-          cd /tmp/install
-          tar czf "${{ github.workspace }}/silisizer-macos-arm64.tar.gz" .
-
-      - name: Smoke test packaged tclreadline
-        run: |
-          # Extract the tarball to a throwaway prefix (not the build tree) so we
-          # exercise the bundled libtclreadline + scripts via the executable's
-          # RPATH, exactly as an end user would after extracting the archive.
-          rm -rf /tmp/pkgtest
-          mkdir -p /tmp/pkgtest
-          tar xzf "${{ github.workspace }}/silisizer-macos-arm64.tar.gz" -C /tmp/pkgtest
-          cp tests/tclreadline/test_tclreadline.tcl /tmp/pkgtest/
-          cd /tmp/pkgtest
-          TCL_LIBRARY=/tmp/pkgtest/usr/local/lib/tcl8.6 ./usr/local/bin/silisizer -exit ./test_tclreadline.tcl | tee out.log
-          grep "TCLREADLINE_TEST: PASS" out.log
-
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: silisizer-macos-arm64
-          path: silisizer-macos-arm64.tar.gz
-
   release:
-    runs-on: ubuntu-latest
-    needs: [build-linux, build-manylinux, build-macos]
-    name: Create GitHub releases
+    uses: Silimate/actions/.github/workflows/native-tarball-release.yml@v1
+    permissions:
+      contents: write
+    with:
+      product: silisizer
+      # Only publish from main; pull requests build and smoke-test but release nothing
+      publish: ${{ github.event_name != 'pull_request' }}
+      draft: ${{ inputs.draft || false }}
+      with-ninja: true
+      alpine-packages: >-
+        curl tcl-dev swig bison flex flex-dev libdwarf-dev elfutils-dev
+        zlib-dev readline-dev eigen-dev automake autoconf libtool
+      centos-packages: >-
+        swig3 flex zlib-devel readline-devel eigen3-devel elfutils-devel
+        elfutils-libelf-devel libdwarf-devel binutils-devel m4 perl-core
+      macos-packages: >-
+        cmake ninja tcl-tk@8 swig bison flex readline eigen dwarfutils libelf
+        autoconf automake libtool
 
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      build-script: |
+        SCRIPTS="$SILIMATE_ACTIONS_DIR/scripts"
+        "$SCRIPTS/install-cudd.sh"
 
-      - name: Download artifacts
-        uses: actions/download-artifact@v4
-        with:
-          merge-multiple: true
+        case "$PLATFORM" in
+          anylinux-amd64)
+            # Alpine packages Tcl and readline, so tclreadline builds against
+            # the system copies
+            "$SCRIPTS/install-tclreadline.sh"
+            CMAKE_EXTRA="-DBUILD_SHARED_LIBS=OFF
+              -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.so
+              -DTCL_READLINE_INCLUDE=/usr/local/include"
+            TCL_SCRIPT_DIR=/usr/lib/tcl8.6
+            ;;
+          manylinux2014-amd64)
+            "$SCRIPTS/install-bison.sh"
+            "$SCRIPTS/install-tcl.sh"
+            # tclreadline's configure.ac needs autoconf >= 2.71, newer than
+            # anything CentOS 7 offers
+            "$SCRIPTS/install-autotools.sh"
+            hash -r
+            TCL_LIB_DIR=/usr/local/lib TCL_INCLUDE_DIR=/usr/local/include \
+              "$SCRIPTS/install-tclreadline.sh"
+            CMAKE_EXTRA="-DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.so
+              -DTCL_READLINE_INCLUDE=/usr/local/include"
+            TCL_SCRIPT_DIR=/usr/local/lib/tcl8.6
+            ;;
+          macos-arm64)
+            TCL_PREFIX=$(brew --prefix tcl-tk@8)
+            READLINE_PREFIX=$(brew --prefix readline)
+            PATH="$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH"
+            export PATH
 
-      - name: Generate release notes
-        id: meta
-        run: |
-          SHORT_SHA=$(git rev-parse --short HEAD)
-          FULL_SHA=$(git rev-parse HEAD)
-          DATE=$(date -u +%Y-%m-%d)
-          echo "short_sha=$SHORT_SHA" >> "$GITHUB_OUTPUT"
-          echo "date=$DATE" >> "$GITHUB_OUTPUT"
-          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          printf '%s\n' \
-            "Automated build from \`main\` @ [\`${SHORT_SHA}\`](${REPO_URL}/commit/${FULL_SHA})" \
-            "" \
-            "| Platform | Archive | Install |" \
-            "|----------|---------|---------|" \
-            "| Linux amd64 (musl, statically portable) | \`silisizer-anylinux-amd64.tar.gz\` | \`sudo tar xzf silisizer-anylinux-amd64.tar.gz -C /\` |" \
-            "| Linux amd64 (manylinux2014, glibc 2.17+) | \`silisizer-manylinux2014-amd64.tar.gz\` | \`sudo tar xzf silisizer-manylinux2014-amd64.tar.gz -C /\` |" \
-            "| macOS arm64 (Apple Silicon) | \`silisizer-macos-arm64.tar.gz\` | \`sudo tar xzf silisizer-macos-arm64.tar.gz -C /\` |" \
-            "" \
-            "**Built:** ${DATE}" \
-            > release_notes.md
+            TCL_LIB_DIR="$TCL_PREFIX/lib" \
+            TCL_INCLUDE_DIR="$TCL_PREFIX/include/tcl-tk" \
+            READLINE_INCLUDE_DIR="$READLINE_PREFIX/include" \
+            READLINE_LIBRARY="-L$READLINE_PREFIX/lib -lreadline" \
+              "$SCRIPTS/install-tclreadline.sh"
 
-      - name: Create permanent release
-        run: |
-          TAG="build-${{ steps.meta.outputs.date }}-${{ steps.meta.outputs.short_sha }}"
-          gh release create "$TAG" \
-            silisizer-anylinux-amd64.tar.gz \
-            silisizer-manylinux2014-amd64.tar.gz \
-            silisizer-macos-arm64.tar.gz \
-            --target "${{ github.sha }}" \
-            --title "Build ${{ steps.meta.outputs.date }} (${{ steps.meta.outputs.short_sha }})" \
-            --notes-file release_notes.md
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            CMAKE_EXTRA="-DBUILD_SHARED_LIBS=OFF
+              -DTCL_LIBRARY=$TCL_PREFIX/lib/libtcl8.6.dylib
+              -DTCL_INCLUDE_PATH=$TCL_PREFIX/include/tcl-tk
+              -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib
+              -DTCL_READLINE_INCLUDE=/usr/local/include
+              -DLIBDWARF_INCLUDE_DIR=$(brew --prefix dwarfutils)/include/libdwarf-0
+              -DLIBELF_INCLUDE_DIR=$(brew --prefix libelf)/include/libelf
+              -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include"
+            TCL_SCRIPT_DIR="$TCL_PREFIX/lib/tcl8.6"
+            ;;
+        esac
 
-      - name: Update latest release
-        run: |
-          git tag -f latest HEAD
-          git push -f origin latest
-          gh release delete latest --yes 2>/dev/null || true
-          gh release create latest \
-            silisizer-anylinux-amd64.tar.gz \
-            silisizer-manylinux2014-amd64.tar.gz \
-            silisizer-macos-arm64.tar.gz \
-            --target "${{ github.sha }}" \
-            --title "Latest Build (${{ steps.meta.outputs.date }})" \
-            --notes-file release_notes.md \
-            --prerelease
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # shellcheck disable=SC2086
+        cmake -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr/local \
+          $CMAKE_EXTRA -S . -B build
+        cmake --build build -j"$NPROC"
+        DESTDIR="${STAGE%/usr/local}" cmake --install build
+
+        # silisizer is a superset of sta, so shipping both only confuses users
+        rm -f "$STAGE/bin/sta"
+
+        # Tcl loads its library scripts at runtime, so they have to travel with
+        # the binary. tclreadline's Tcl scripts are embedded in silisizer
+        # itself, so only its shared library (bundled automatically) is needed.
+        cp -R "$TCL_SCRIPT_DIR" "$STAGE/lib/tcl8.6"
+
+      smoke-test: |
+        # Extract to a throwaway prefix so libtclreadline and the Tcl scripts
+        # are reached through the binary's RPATH, exactly as a user would after
+        # unpacking the archive
+        rm -rf /tmp/smoke && mkdir -p /tmp/smoke
+        tar xzf "$TARBALL" -C /tmp/smoke
+        cp tests/tclreadline/test_tclreadline.tcl /tmp/smoke/
+        cd /tmp/smoke
+        TCL_LIBRARY=/tmp/smoke/usr/local/lib/tcl8.6 \
+          ./usr/local/bin/silisizer -exit ./test_tclreadline.tcl | tee out.log
+        grep "TCLREADLINE_TEST: PASS" out.log
+        PREFIX=usr/local "$SILIMATE_ACTIONS_DIR/scripts/verify-relocatable.sh" /tmp/smoke
