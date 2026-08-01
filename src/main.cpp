@@ -17,6 +17,7 @@
 #include <iostream>
 
 #include "Silisizer.h"
+#include "StaImage.h"
 #include "sta/StaMain.hh"
 #include "StaConfig.hh"  // TCL_READLINE
 #include "StringUtil.hh"
@@ -69,11 +70,12 @@ parseThreadsArg(int &argc,
 }
 
 static void showUsage(char *prog) {
-  printf("Usage: %s [-help] [-version] [-threads count|max] cmd_file\n",
+  printf("Usage: %s [-help] [-version] [-threads count|max] [-restore image] cmd_file\n",
          prog);
   printf("  -help              show help and exit\n");
   printf("  -version           show version and exit\n");
   printf("  -threads count|max use count threads\n");
+  printf("  -restore image     restore a saved session image\n");
   printf("  cmd_file           source cmd_file and exit\n");
 }
 
@@ -147,6 +149,15 @@ void dump_icg_json(const char *path) {
   silisizer::dumpIcgJson(path);
 }
 
+int save_sta_image(const char *path) {
+  std::string error;
+  if (!silisizer::imageSave(path, error)) {
+    fprintf(stderr, "Error: %s\n", error.c_str());
+    return 1;
+  }
+  return 0;
+}
+
 void segv_call_fn() {
   int a;
   a = 6;
@@ -172,15 +183,33 @@ void signalHandler(int signo) {
 }
 
 int main(int argc, char *argv[]) {
+  // Both must run before anything allocates: the first pins the address layout
+  // an image depends on, the second starts routing allocation into the region.
+  silisizer::imageEnsureFixedLayout(argc, argv);
+  silisizer::imageArm();
+
   signal(SIGSEGV, signalHandler);
   signal(SIGFPE, signalHandler);
   signal(SIGINT, signalHandler);
   signal(SIGABRT, signalHandler);
-  sizer = new Silisizer();
-  sta::initSta();
-  sta::Sta::setSta(sizer);
-  sizer->makeComponents();
 
+  const char *restore_path = findCmdLineKey(argc, argv, "-restore");
+  if (restore_path) {
+    std::string error;
+    if (!silisizer::imageRestore(restore_path, error)) {
+      fprintf(stderr, "Error: %s\n", error.c_str());
+      return EXIT_FAILURE;
+    }
+    // The engine, including Sta::sta_, came back with the restored globals.
+    sizer = static_cast<Silisizer *>(sta::Sta::sta());
+  } else {
+    sizer = new Silisizer();
+    sta::initSta();
+    sta::Sta::setSta(sizer);
+    sizer->makeComponents();
+  }
+
+  // Set after any restore, which overwrites globals with the saved process's.
   silisizer_argc = argc;
   silisizer_argv = argv;
   // Set argc to 1 so Tcl_Main doesn't source any files.

@@ -179,6 +179,7 @@ endif()
 
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
+  ${PROJECT_SOURCE_DIR}/src/StaImage.cpp
   ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
   ${PROJECT_SOURCE_DIR}/third_party/backward-cpp/backward.cpp)
 
