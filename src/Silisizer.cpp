@@ -22,6 +22,10 @@
 #include <iostream>
 #include <list>
 #include <memory>
+#include <set>
+#include <unordered_map>
+#include <utility>
+#include <vector>
 
 #include "sta/Liberty.hh"
 #include "sta/Network.hh"
@@ -68,6 +72,29 @@ int Silisizer::silisize(const char *workdir,
 
   // Effort variables (multiply swaps per iteration by 2 until complete)
   int swaps_per_iter = 1;
+
+  // Record of (module, cell) pairs that have already been upsized.
+  std::set<std::pair<std::string, std::string>> recorded;
+
+  // Index folded sp0 leaf copies by (module, cell) once for future fast lookups
+  std::unordered_map<std::string, std::vector<sta::Instance*>> fold_insts;
+  {
+    std::unique_ptr<sta::LeafInstanceIterator> leaves(
+        network->leafInstanceIterator());
+    while (leaves->hasNext()) {
+      sta::Instance* leaf = leaves->next();
+      sta::Instance* parent = network->parent(leaf);
+      if (!parent)
+        continue;
+      sta::LibertyCell* leaf_lib = network->libertyCell(network->cell(leaf));
+      if (!leaf_lib ||
+          std::string(leaf_lib->name()).find("_sp0_") == std::string::npos)
+        continue;
+      std::string key = std::string(network->cellName(parent)) + '\t' +
+                        reverseOpenSTANaming(network->name(leaf));
+      fold_insts[key].push_back(leaf);
+    }
+  }
 
   // Output the header for back-annotation TSV. Preqorsor always reads this
   // file after SPEED==2 STA, so failing to create it must be a hard error.
@@ -281,9 +308,21 @@ int Silisizer::silisize(const char *workdir,
         if (!parentName.empty()) fullname += parentName + ".";
       }
       std::string cellname = reverseOpenSTANaming(network->name(offender));
+
+      // Insert key into recorded set
+      std::pair<std::string, std::string> key{parentcellname, cellname};
+      if (recorded.find(key) != recorded.end())
+        continue; // skip if already recorded, as we swap all instances already
+      // A sibling in this batch may already have closed the fold to sp1.
+      if (sp0_name.find("_sp0_") == std::string::npos)
+        continue;
+      recorded.insert(key);
+
+      // Log resizing operation
       std::cout << "Resizing instance " << fullname + cellname
                 << " of type " << sp0_name
                 << " to type " << sp1_name << std::endl;
+
       // Find the corresponding speed 1 Liberty cell
       sta::LibertyCell* to_cell = library->findLibertyCell(sp1_name.c_str());
       if (!to_cell) {
@@ -294,8 +333,19 @@ int Silisizer::silisize(const char *workdir,
                   << "Timing optimization partially done!" << std::endl;
         return close_transforms();
       }
-      // Swap the cell with speed 1 cell
-      Sta::sta()->replaceCell(offender, to_cell);
+
+      // Swap every folded copy of this (module, cell) to the speed 1 cell
+      auto fold_it = fold_insts.find(parentcellname + '\t' + cellname);
+      if (fold_it != fold_insts.end()) {
+        for (sta::Instance* leaf : fold_it->second) {
+          sta::LibertyCell* leaf_lib = network->libertyCell(network->cell(leaf));
+          if (!leaf_lib ||
+              std::string(leaf_lib->name()).find("_sp0_") == std::string::npos)
+            continue;
+          Sta::sta()->replaceCell(leaf, to_cell);
+        }
+      }
+
       // Record the transformation for back-annotation in the folded model
       // (unique module name/cell name)
       transforms << parentcellname << "\t" << cellname << std::endl;
