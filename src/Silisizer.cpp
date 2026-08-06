@@ -76,12 +76,19 @@ int Silisizer::silisize(const char *workdir,
   // Record of (module, cell) pairs that have already been upsized.
   std::set<std::pair<std::string, std::string>> recorded;
 
-  // Index folded sp0 leaf copies by (module, cell) once for future fast lookups
+  // Populate map of sp0 leaf copies by (module, cell) for fast lookups
+  // {
+  //   (module1, cell1) -> [leaf instances]
+  //   (module1, cell2) -> [leaf instances]
+  //   (module2, cell1) -> [leaf instances]
+  //   (module2, cell2) -> [leaf instances]
+  //   ...
+  // }
   std::unordered_map<std::string, std::vector<sta::Instance*>> fold_insts;
   {
     std::unique_ptr<sta::LeafInstanceIterator> leaves(
         network->leafInstanceIterator());
-    while (leaves->hasNext()) {
+    while (leaves->hasNext()) { // loop over all leaves
       sta::Instance* leaf = leaves->next();
       sta::Instance* parent = network->parent(leaf);
       if (!parent)
@@ -90,8 +97,10 @@ int Silisizer::silisize(const char *workdir,
       if (!leaf_lib ||
           std::string(leaf_lib->name()).find("_sp0_") == std::string::npos)
         continue;
+      // Construct key for future lookup
       std::string key = std::string(network->cellName(parent)) + '\t' +
                         reverseOpenSTANaming(network->name(leaf));
+      // Add leaf instance to list for the cell
       fold_insts[key].push_back(leaf);
     }
   }
