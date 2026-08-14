@@ -357,7 +357,8 @@ int Silisizer::silisize(const char *workdir,
 
       // Record the transformation for back-annotation in the folded model
       // (unique module name/cell name)
-      transforms << parentcellname << "\t" << cellname << std::endl;
+      transforms << reverseOpenSTANaming(parentcellname) << "\t" << cellname
+                 << std::endl;
     }
 
     // Get delta WNS and delta WNS fraction
