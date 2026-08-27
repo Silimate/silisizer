@@ -55,11 +55,20 @@ jobs:
             TCL_SCRIPT_DIR=/usr/lib/tcl8.6
             ;;
           manylinux2014-amd64)
-            "$SCRIPTS/install-bison.sh"
+            # Download bison
+            curl -fL -o /tmp/bison-3.8.2.tar.gz https://ftpmirror.gnu.org/gnu/bison/bison-3.8.2.tar.gz \
+              || curl -fL -o /tmp/bison-3.8.2.tar.gz https://mirrors.kernel.org/gnu/bison/bison-3.8.2.tar.gz
+            tar -xzC /tmp -f /tmp/bison-3.8.2.tar.gz
+            ( cd /tmp/bison-3.8.2 && ./configure && make -j"$NPROC" && make install )
             "$SCRIPTS/install-tcl.sh"
-            # tclreadline's configure.ac needs autoconf >= 2.71, newer than
-            # anything CentOS 7 offers
-            "$SCRIPTS/install-autotools.sh"
+            # tclreadline needs autoconf >= 2.71; same GNU host as bison
+            for spec in autoconf/autoconf-2.71 automake/automake-1.16.5 libtool/libtool-2.4.7; do
+              name=${spec#*/}
+              curl -fL -o /tmp/${name}.tar.gz https://ftpmirror.gnu.org/gnu/${spec}.tar.gz \
+                || curl -fL -o /tmp/${name}.tar.gz https://mirrors.kernel.org/gnu/${spec}.tar.gz
+              tar -xzC /tmp -f /tmp/${name}.tar.gz
+              ( cd /tmp/${name} && ./configure --prefix=/usr/local && make -j"$NPROC" && make install )
+            done
             hash -r
             TCL_LIB_DIR=/usr/local/lib TCL_INCLUDE_DIR=/usr/local/include \
               "$SCRIPTS/install-tclreadline.sh"
