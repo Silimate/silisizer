@@ -3,3 +3,7 @@ dbuild
 
 # silisize test output (data/resized_cells.tsv) written into test working dirs
 tests/**/data/
+
+/venv
+/.venv
+/wheelhouse
