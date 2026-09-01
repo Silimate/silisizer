@@ -7,3 +7,5 @@ tests/**/data/
 /venv
 /.venv
 /wheelhouse
+*.whl
+__pycache__

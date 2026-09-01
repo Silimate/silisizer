@@ -25,6 +25,8 @@ import tarfile
 import tempfile
 import sysconfig
 import subprocess
+import hashlib
+import urllib.request
 from email.policy import EmailPolicy
 from email.message import EmailMessage
 from typing import Tuple, Iterable, Optional
@@ -52,6 +54,10 @@ ENTRY_POINTS = f"""
 [console_scripts]
 silisizer = {PROJECT_NAME}.__main__:silisizer
 """
+
+# downloadable deps
+CUDD_URL = "https://github.com/silimate/cudd/archive/cudd-3.0.0.tar.gz"
+CUDD_SHA256 = "5fe145041c594689e6e7cf4cd623d5f2b7c36261708be8c9a72aed72cf67acce"
 
 
 def build_sdist(sdist_dir, config_settings=None):
@@ -163,6 +169,40 @@ def prepare_metadata_for_build_wheel(metadata_directory, config_settings=None):
     return f"{DIST_NAME}.dist-info"
 
 
+def _ensure_cudd(d):
+    cudd_result = subprocess.check_output(
+        ["cmake", "-P", "third_party/OpenSTA/cmake/FindCUDD.cmake"],
+        encoding="utf8",
+    )
+    if "not found" not in cudd_result:
+        return None
+
+    urllib.request.urlretrieve(CUDD_URL, d / "cudd.tar.gz")
+    with open(d / "cudd.tar.gz", "rb") as f:
+        buffer = f.read()
+        sha256 = hashlib.sha256()
+        sha256.update(buffer)
+        got = sha256.hexdigest()
+        assert CUDD_SHA256 == got, f"upstream hash for cudd source changed: {got}"
+
+    with tarfile.open(d / "cudd.tar.gz", mode="r:gz") as tf:
+        tf.extractall(d / "cudd-src")
+
+    subprocess.check_call(
+        ["./configure", f"--prefix={d / 'cudd'}"],
+        cwd=d / "cudd-src" / "cudd-cudd-3.0.0",
+    )
+    subprocess.check_call(
+        ["make", f"-j{os.cpu_count()}"],
+        cwd=d / "cudd-src" / "cudd-cudd-3.0.0",
+    )
+    subprocess.check_call(
+        ["make", "install"],
+        cwd=d / "cudd-src" / "cudd-cudd-3.0.0",
+    )
+    return d / "cudd"
+
+
 def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
     """
     top-level function (called by wheel build)
@@ -179,6 +219,12 @@ def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
         # build in temporary directory
         with tempfile.TemporaryDirectory(f".{PROJECT_NAME}-build", "w") as d_str:
             d = pathlib.Path(d_str)
+
+            cmake_prefix_path = os.getenv("CMAKE_PREFIX_PATH", "")
+
+            # build cudd if it cannot be found
+            if cudd_prefix := _ensure_cudd(d):
+                cmake_prefix_path = f"{cudd_prefix}:{cmake_prefix_path}"
 
             # add tcllib
             tcllib_path = subprocess.check_output(
@@ -202,13 +248,16 @@ def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
             )
 
             # configure
+            env = os.environ.copy()
+            env["CMAKE_PREFIX_PATH"] = cmake_prefix_path
             subprocess.check_call(
                 [
                     "cmake",
                     "-B",
                     d,
                     ".",
-                ]
+                ],
+                env=env,
             )
 
             # build

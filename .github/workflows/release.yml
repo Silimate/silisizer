@@ -70,11 +70,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: 3.8
-      - name: Build sdist
-        # only build on one platform, not sure what the collision behavior is
-        if: ${{ matrix.os.name == 'macos' && matrix.os.arch == 'arm64' }}
+      - if: ${{ matrix.os.name == 'macos' }}
+        # install various dependencies via brew
+        # NOTE:
+        #   could also install silimate/silimate/cudd at this point but it's not
+        #   in any package manager on Linux so might as well just build it as
+        #   part of the wheel itself
+        # TODO: point to silimate/silimate/tcl-readline before merge
         run: |
-          pipx run build --sdist
+          brew install \
+            cmake ninja tcl-tk@8 swig bison flex readline eigen dwarfutils\
+            libelf autoconf automake libtool donn/silimate/tcl-readline
+          echo "$(brew --prefix tcl-tk@8)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+          echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+          echo "CMAKE_PREFIX_PATH=$(brew --prefix tcl-tk@8):$(brew --prefix flex):$(brew --prefix bison):$(brew --prefix tcl-readline):$(brew --prefix dwarfutils):$(brew --prefix libelf)" >> $GITHUB_ENV
+          echo "CMAKE_INCLUDE_PATH=$(brew --prefix dwarfutils)/include/libdwarf-2:$(brew --prefix libelf)/include/libelf" >> $GITHUB_ENV
       - name: Build wheels
         uses: pypa/cibuildwheel@v4.2.0
         with:
@@ -85,11 +96,16 @@ jobs:
           CIBW_BUILD_VERBOSITY: "1"
           CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
           CIBW_MANYLINUX_AARCH64_IMAGE: manylinux_2_28
-          CIBW_BEFORE_ALL: bash ./wheel_build/before_all.sh
+          CIBW_BEFORE_ALL_LINUX: bash ./wheel_build/before_all_linux.sh
+          # can technically deploy to macOS 11 still but would have to build all
+          # of these manually:
+          #  tcl-tk, readline, tcl-readline, dwarf
+          # a minimum macOS 15 (2024) requirement is reasonable
           CIBW_ENVIRONMENT: >
-            MACOSX_DEPLOYMENT_TARGET=11.0
+            MACOSX_DEPLOYMENT_TARGET=15
             SILISIZER_WHEEL_VERSION=${{ needs.version.outputs.version }}
-          CIBW_TEST: silisizer tests/test_silisize_flags.tcl
+          # smoke test - full functionality test in other workflow
+          CIBW_TEST_COMMAND: (cd {project}/tests/tclreadline && bash test silisizer)
       - uses: actions/upload-artifact@v7
         with:
           name: python-wheels-${{ matrix.os.name }}-${{ matrix.os.arch }}

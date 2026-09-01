@@ -18,7 +18,7 @@ if(NOT CMAKE_BUILD_TYPE)
 endif(NOT CMAKE_BUILD_TYPE)
 
 
-set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules" ${CMAKE_MODULE_PATH})
+set(CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake" ${CMAKE_MODULE_PATH})
 
 option(
   WITH_LIBCXX
@@ -89,38 +89,8 @@ endif()
 find_package(TCL)
 
 # Referenced by util/StaConfig.hh.cmake
-set(TCL_READLINE 0)
-# check for tclReadline
-if (USE_TCL_READLINE)
-  set(TCL_READLINE_POSSIBLE_NAMES
-    tclreadline-2.1.0
-    tclreadline-2.3.2
-    tclreadline-2.3.6
-    tclreadline-2.3.7
-    tclreadline-2.3.8
-    tclreadline-2.4.1
-    )
-  find_library(TCL_READLINE_LIBRARY
-    NAMES tclreadline ${TCL_READLINE_POSSIBLE_NAMES}
-    PATHS ${TCL_LIB_PATHS}
-    )
-  if (TCL_READLINE_LIBRARY)
-    message(STATUS "TCL readline library: ${TCL_READLINE_LIBRARY}")
-  else()
-    message(STATUS "TCL readline library: NOT FOUND")
-  endif()
+find_package(TclReadline)
 
-  find_path(TCL_READLINE_INCLUDE tclreadline.h)
-  if (TCL_READLINE_INCLUDE)
-    message(STATUS "TCL readline header: ${TCL_READLINE_INCLUDE}/tclreadline.h")
-  else()
-    message(STATUS "TCL readline header: NOT FOUND")
-  endif()
-
-  if (TCL_READLINE_LIBRARY AND TCL_READLINE_INCLUDE)
-    set(TCL_READLINE 1)
-  endif()
-endif()
 ################################################################
 
 add_subdirectory(third_party/OpenSTA)
