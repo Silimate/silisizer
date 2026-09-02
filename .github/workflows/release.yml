@@ -72,15 +72,11 @@ jobs:
           python-version: 3.8
       - if: ${{ matrix.os.name == 'macos' }}
         # install various dependencies via brew
-        # NOTE:
-        #   could also install silimate/silimate/cudd at this point but it's not
-        #   in any package manager on Linux so might as well just build it as
-        #   part of the wheel itself
-        # TODO: point to silimate/silimate/tcl-readline before merge
+        # NOTE: intentionally uninstalling cudd so that the fallback behavior
+        #       in build_wheel remains tested
         run: |
-          brew install \
-            cmake ninja tcl-tk@8 swig bison flex readline eigen dwarfutils\
-            libelf autoconf automake libtool donn/silimate/tcl-readline
+          brew bundle install
+          brew uninstall cudd
           echo "$(brew --prefix tcl-tk@8)/bin" >> $GITHUB_PATH
           echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
           echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
