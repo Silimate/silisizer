@@ -183,7 +183,8 @@ def _ensure_cudd(d):
         sha256 = hashlib.sha256()
         sha256.update(buffer)
         got = sha256.hexdigest()
-        assert CUDD_SHA256 == got, f"upstream hash for cudd source changed: {got}"
+        if CUDD_SHA256 != got:
+            raise RuntimeError(f"upstream hash for cudd source changed: {got}")
 
     with tarfile.open(d / "cudd.tar.gz", mode="r:gz") as tf:
         tf.extractall(d / "cudd-src")
