@@ -1,4 +1,4 @@
-name: "Release (manylinux2014 amd64 + macOS arm64)"
+name: "Release (anylinux amd64 + manylinux2014 amd64 + macOS arm64)"
 
 on:
   push:
@@ -12,9 +12,9 @@ concurrency:
   # - Group all pull requests: latest push cancels previous ones
   # - Group all branches: run serially
   group: >
-    release-${{
+    wheel-${{
       (github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number)) ||
-      ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && format('branch-{0}', github.ref_name)) ||
+      ((github.event_name == 'push' || github.event_name == 'workflow_dispatch') && 'release') ||
       ''
     }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
