@@ -1,10 +1,12 @@
-# source OpenSTA brewfile
-eval(IO.read(File.join(File.dirname(__FILE__), 'third_party', 'OpenSTA', 'Brewfile')), binding)
-
-tap "silimate/silimate"
-
+brew "bison"
+brew "cmake"
+brew "eigen"
+brew "flex"
+brew "swig"
+brew "tcl-tk@8"
 brew "readline"
-brew "silimate/silimate/tcl-readline", trusted: true
-
 brew "libelf"
 brew "dwarfutils"
+tap "silimate/silimate"
+brew "silimate/silimate/cudd", trusted: true
+brew "silimate/silimate/tcl-readline", trusted: true
