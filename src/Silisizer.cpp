@@ -16,7 +16,6 @@
 #include "Silisizer.h"
 
 #include <algorithm>
-#include <cmath>
 #include <filesystem>
 #include <fstream>
 #include <iostream>
@@ -26,7 +25,6 @@
 #include "sta/Liberty.hh"
 #include "sta/Network.hh"
 #include "sta/PathEnd.hh"
-#include "sta/PortDirection.hh"
 #include "sta/Sta.hh"
 #include "sta/TimingRole.hh"
 
