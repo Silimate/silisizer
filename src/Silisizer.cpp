@@ -279,13 +279,17 @@ int Silisizer::silisize(const char *workdir,
     // Sort the offender list and, unless requested otherwise, limit it to the
     // adaptive number of swaps for this iteration. By default the biggest delay
     // contributors are upsized first; under the -least policy the order is
-    // reversed so the smallest contributors are upsized first.
+    // reversed so the smallest contributors are upsized first. -least only
+    // changes adaptive-batch pick order, so -all keeps the default ranking
+    // (resized_cells.tsv would otherwise differ despite upsizing every cell).
     std::list<std::pair<sta::Instance*, double>> offenders;
     for (const auto& pair : offending_inst_score)
       offenders.push_back(pair);
-    offenders.sort([upsize_least](const std::pair<sta::Instance*, double>& a,
-                                  const std::pair<sta::Instance*, double>& b) {
-      return upsize_least ? a.second < b.second : a.second > b.second;
+    offenders.sort([upsize_least, upsize_all](
+                       const std::pair<sta::Instance*, double>& a,
+                       const std::pair<sta::Instance*, double>& b) {
+      const bool least_first = upsize_least && !upsize_all;
+      return least_first ? a.second < b.second : a.second > b.second;
     });
     if (!upsize_all)
       offenders.resize(std::min(swaps_per_iter, (int) offenders.size()));

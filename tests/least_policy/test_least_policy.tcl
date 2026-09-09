@@ -55,6 +55,25 @@ if {[catch {resize_order least {-least}} order]} {
     lappend failures "-least resized [lindex $order 0] first, expected small_cell (order: $order)"
 }
 
+# -least must not change TSV order when every offender is already upsized.
+sta::clear_sta
+
+set all_order {}
+if {[catch {resize_order all {-all}} all_order]} {
+    lappend failures $all_order
+    set all_order {}
+} elseif {[lindex $all_order 0] ne "big_cell"} {
+    lappend failures "-all resized [lindex $all_order 0] first, expected big_cell (order: $all_order)"
+}
+
+sta::clear_sta
+
+if {[catch {resize_order all_least {-all -least}} all_least_order]} {
+    lappend failures $all_least_order
+} elseif {$all_order ne {} && $all_least_order ne $all_order} {
+    lappend failures "-all -least TSV order $all_least_order, expected $all_order"
+}
+
 if {[llength $failures]} {
     puts "LEAST_POLICY_TEST: FAIL"
     foreach failure $failures {
