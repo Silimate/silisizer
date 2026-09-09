@@ -15,6 +15,15 @@ foreach(test_name ${ALL_TESTS})
 endforeach()
 
 add_test(
+  NAME retime
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/picorv32
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/picorv32/retime.tcl
+)
+
+add_test(
   NAME silisize_flags
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMAND

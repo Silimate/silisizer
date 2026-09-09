@@ -84,7 +84,7 @@ extern int Sta_Init(Tcl_Interp *interp);
 }
 
 namespace sta {
-// extern const char *silisizer_tcl_inits[];
+extern const char *silisizer_tcl_inits[];
 extern const char *tcl_inits[];
 #if TCL_READLINE
 // tclreadline Tcl scripts (Setup + Completer + completer hookup) encoded into
@@ -243,7 +243,7 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
 
   // Eval encoded sta TCL sources.
   sta::evalTclInit(interp, sta::tcl_inits);
-  // sta::evalTclInit(interp, sta::silisizer_tcl_inits);
+  sta::evalTclInit(interp, sta::silisizer_tcl_inits);
 
   // Import exported commands from sta namespace to global namespace.
   Tcl_Eval(interp, "sta::define_sta_cmds");
@@ -257,8 +257,11 @@ static int silisizerTclAppInit(Tcl_Interp *interp) {
     if (argc == 2) {
       char *cmd_file = argv[1];
       if (cmd_file) {
-        sta::sourceTclFile(cmd_file, false, false, interp);
-        if (exit_after_cmd_file) exit(EXIT_SUCCESS);
+        int result = sta::sourceTclFile(cmd_file, false, false, interp);
+        if (exit_after_cmd_file) {
+          int exit_code = (result == TCL_OK) ? EXIT_SUCCESS : EXIT_FAILURE;
+          exit(exit_code);
+        }
       }
     }
   }

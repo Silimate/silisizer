@@ -104,7 +104,22 @@ add_subdirectory(third_party/backward-cpp)
 target_include_directories(backward_interface INTERFACE /usr/include/libdwarf/)
 
 set(SILISIZER_TCL_FILES
-  src/Silisizer.tcl
+  ${PROJECT_SOURCE_DIR}/src/Silisizer.tcl
+  )
+
+# Encode silisizer Tcl commands into the binary the same way OpenSTA
+# ships tcl_inits, so `retime_tcl` is available without a file on disk.
+find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
+if (TCLSH_EXECUTABLE)
+  set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
+else()
+  set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
+endif()
+
+set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
+add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
+  COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
+  DEPENDS ${SILISIZER_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
   )
 
 set(SILISIZER_SWIG_FILES
@@ -135,12 +150,6 @@ if (TCL_READLINE)
     ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineEmbedInit.tcl
     )
   set(SILISIZER_TCLRL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclReadlineInitVar.cc)
-  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
-  if (TCLSH_EXECUTABLE)
-    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  else()
-    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  endif()
   add_custom_command(OUTPUT ${SILISIZER_TCLRL_INIT}
     COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCLRL_INIT} tclreadline_inits ${SILISIZER_TCLRL_TCL_FILES}
     DEPENDS ${SILISIZER_TCLRL_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
@@ -151,7 +160,6 @@ set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
   ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
   ${PROJECT_SOURCE_DIR}/third_party/backward-cpp/backward.cpp)
-
 
 add_library(silisizer ${silisizer_SRC})
 
@@ -172,7 +180,7 @@ target_include_directories(silisizer PUBLIC
   ${TCL_HEADER_DIR}
   $<INSTALL_INTERFACE:include>)
 
-  add_executable(silisizer-bin ${PROJECT_SOURCE_DIR}/src/main.cpp ${SILISIZER_TCLRL_INIT})
+  add_executable(silisizer-bin ${PROJECT_SOURCE_DIR}/src/main.cpp ${SILISIZER_TCL_INIT} ${SILISIZER_TCLRL_INIT})
 set_target_properties(silisizer-bin PROPERTIES OUTPUT_NAME silisizer)
 
 if (MSVC OR WIN32)
