@@ -36,6 +36,10 @@ proc retime_seq_instance { pin } {
   return $inst
 }
 
+proc json_escape { str } {
+  string map {\\ \\\\ \" \\\" \n \\n \r \\r \t \\t} $str
+}
+
 # Worst setup path JSON to (-to) or from (-from) a flop instance, or "null".
 proc report_neighbor_path { key inst } {
   if { $inst == "NULL" } {
@@ -87,8 +91,8 @@ proc report_retime_candidates { args } {
   set objects {}
   foreach row $rows {
     lassign $row source sink report
-    set from [get_full_name $source]
-    set to [get_full_name $sink]
+    set from [json_escape [get_full_name $source]]
+    set to [json_escape [get_full_name $sink]]
     set report [string map {"\n" "\n    "} $report]
     set before [report_neighbor_path -to [retime_seq_instance $source]]
     set after [report_neighbor_path -from [retime_seq_instance $sink]]
