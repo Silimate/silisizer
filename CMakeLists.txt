@@ -122,7 +122,6 @@ if (WIN32)
   add_compile_definitions(WIN32_LEAN_AND_MEAN)
 endif()
 
-# TclEncode driver: used for silisizer commands and, when enabled, tclreadline.
 find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
 if (TCLSH_EXECUTABLE)
   set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
@@ -130,6 +129,7 @@ else()
   set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
 endif()
 
+# Encode custom tcl scripts into c array
 set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
 add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
   COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
