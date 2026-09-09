@@ -66,7 +66,8 @@ std::string reverseOpenSTANaming(std::string cellname) {
 // Silisizer: resize operator-level cells to resolve timing violations
 int Silisizer::silisize(const char *workdir,
                         bool upsize_all,
-                        bool stop_on_wns_stall) {
+                        bool stop_on_wns_stall,
+                        bool upsize_least) {
   // Initialize network
   sta::Network* network = this->network();
 
@@ -276,13 +277,15 @@ int Silisizer::silisize(const char *workdir,
     }
 
     // Sort the offender list and, unless requested otherwise, limit it to the
-    // adaptive number of swaps for this iteration.
+    // adaptive number of swaps for this iteration. By default the biggest delay
+    // contributors are upsized first; under the -least policy the order is
+    // reversed so the smallest contributors are upsized first.
     std::list<std::pair<sta::Instance*, double>> offenders;
     for (const auto& pair : offending_inst_score)
       offenders.push_back(pair);
-    offenders.sort([](const std::pair<sta::Instance*, double>& a,
-                      const std::pair<sta::Instance*, double>& b) {
-      return a.second > b.second;
+    offenders.sort([upsize_least](const std::pair<sta::Instance*, double>& a,
+                                  const std::pair<sta::Instance*, double>& b) {
+      return upsize_least ? a.second < b.second : a.second > b.second;
     });
     if (!upsize_all)
       offenders.resize(std::min(swaps_per_iter, (int) offenders.size()));

@@ -23,7 +23,8 @@ class Silisizer : public sta::Sta {
   ~Silisizer() {}
   int silisize(const char *workdir,
                bool upsize_all = false,
-               bool stop_on_wns_stall = false);
+               bool stop_on_wns_stall = false,
+               bool upsize_least = false);
 };
 
 void dumpIcgJson(const char *path);

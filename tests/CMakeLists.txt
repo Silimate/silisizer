@@ -49,3 +49,12 @@ add_test(
     -exit
     ${CMAKE_CURRENT_SOURCE_DIR}/wns_policy/test_all_policy.tcl
 )
+
+add_test(
+  NAME least_policy
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/least_policy
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/least_policy/test_least_policy.tcl
+)

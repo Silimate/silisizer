@@ -21,10 +21,23 @@ improvement, even if other violating paths could still improve:
 sta::silisize -wns workdir
 ```
 
+Pass `-least` to upsize the *least* delay-contributing offenders first. By
+default each pass upsizes the cells with the largest cumulative arc-delay
+contribution across the violating paths; `-least` reverses that ranking:
+
+```tcl
+sta::silisize -least workdir
+```
+
+`-least` only changes which offenders are picked out of each pass's adaptive
+batch, so it has no effect when combined with `-all` (which upsizes every
+eligible offender anyway).
+
 The policies can be combined:
 
 ```tcl
 sta::silisize -all -wns workdir
+sta::silisize -least -wns workdir
 ```
 
 `silisize` always creates `workdir/data/resized_cells.tsv` (header only when no

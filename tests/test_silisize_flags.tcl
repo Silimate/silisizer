@@ -17,7 +17,10 @@ foreach command [list \
         [list sta::silisize $workdir] \
         [list sta::silisize -all $workdir] \
         [list sta::silisize -wns $workdir] \
-        [list sta::silisize -all -wns $workdir]] {
+        [list sta::silisize -least $workdir] \
+        [list sta::silisize -all -wns $workdir] \
+        [list sta::silisize -least -wns $workdir] \
+        [list sta::silisize -all -wns -least $workdir]] {
     if {[catch $command result]} {
         lappend failures "$command failed: $result"
     } elseif {$result != 0} {
@@ -27,7 +30,7 @@ foreach command [list \
 
 if {![catch {sta::silisize -unknown $workdir} result]} {
     lappend failures "sta::silisize accepted an unknown flag"
-} elseif {$result ne {unknown option "-unknown": must be -all or -wns}} {
+} elseif {$result ne {unknown option "-unknown": must be -all, -wns or -least}} {
     lappend failures "sta::silisize returned a misleading error: $result"
 }
 
