@@ -30,3 +30,16 @@ sta::silisize -all -wns workdir
 `silisize` always creates `workdir/data/resized_cells.tsv` (header only when no
 cells are resized) so Preqorsor can back-annotate SPEED==2 runs. Failure to
 create that file is a hard error.
+
+# Local Building
+
+## macOS
+
+```bash
+git submodule update --init --recursive
+brew bundle sh
+export CMAKE_INCLUDE_PATH="$(brew --prefix dwarfutils)/include/libdwarf-2:$(brew --prefix libelf)/include/libelf"
+mkdir build
+cd build
+cmake ..
+```

@@ -38,20 +38,10 @@ jobs:
         libfl-dev libdwarf-dev libdw-dev libelf-dev elfutils automake
         autotools-dev ninja-build
       macos-setup: |
-        (cd third_party/OpenSTA && brew bundle install)
-        brew install ninja readline autoconf automake libtool
+        brew bundle install
 
-        TCL_PREFIX=$(brew --prefix tcl-tk@8)
-        READLINE_PREFIX=$(brew --prefix readline)
-
-        # macOS packages no tclreadline, so the interactive prompt and the
-        # tclreadline test need it built from source
-        TCL_LIB_DIR="$TCL_PREFIX/lib" \
-        TCL_INCLUDE_DIR="$TCL_PREFIX/include/tcl-tk" \
-        READLINE_INCLUDE_DIR="$READLINE_PREFIX/include" \
-        READLINE_LIBRARY="-L$READLINE_PREFIX/lib -lreadline" \
-          ./.silimate-actions/scripts/install-tclreadline.sh
-
-        echo "PATH=$(brew --prefix bison)/bin:$(brew --prefix flex)/bin:$PATH" >> "$GITHUB_ENV"
-        # One line: $GITHUB_ENV needs heredoc syntax for multi-line values
-        echo "CMAKE_ARGS=-DTCL_LIBRARY=$TCL_PREFIX/lib/libtcl8.6.dylib -DTCL_INCLUDE_PATH=$TCL_PREFIX/include/tcl-tk -DFLEX_INCLUDE_DIR=$(brew --prefix flex)/include -DTCL_READLINE_LIBRARY=/usr/local/lib/libtclreadline.dylib -DTCL_READLINE_INCLUDE=/usr/local/include" >> "$GITHUB_ENV"
+        echo "$(brew --prefix tcl-tk@8)/bin" >> $GITHUB_PATH
+        echo "$(brew --prefix flex)/bin" >> $GITHUB_PATH
+        echo "$(brew --prefix bison)/bin" >> $GITHUB_PATH
+        echo "CMAKE_PREFIX_PATH=$(brew --prefix tcl-tk@8):$(brew --prefix flex):$(brew --prefix bison):$(brew --prefix tcl-readline):$(brew --prefix dwarfutils):$(brew --prefix libelf)" >> $GITHUB_ENV
+        echo "CMAKE_INCLUDE_PATH=$(brew --prefix dwarfutils)/include/libdwarf-2:$(brew --prefix libelf)/include/libelf" >> $GITHUB_ENV
