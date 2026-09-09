@@ -107,21 +107,6 @@ set(SILISIZER_TCL_FILES
   ${PROJECT_SOURCE_DIR}/src/Silisizer.tcl
   )
 
-# Encode silisizer Tcl commands into the binary the same way OpenSTA
-# ships tcl_inits, so `report_retime_candidates` is available without a file on disk.
-find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
-if (TCLSH_EXECUTABLE)
-  set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
-else()
-  set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
-endif()
-
-set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
-add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
-  COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
-  DEPENDS ${SILISIZER_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
-  )
-
 set(SILISIZER_SWIG_FILES
   src/Silisizer.i
   )
@@ -150,16 +135,38 @@ if (TCL_READLINE)
     ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineEmbedInit.tcl
     )
   set(SILISIZER_TCLRL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclReadlineInitVar.cc)
+  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
+  if (TCLSH_EXECUTABLE)
+    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  else()
+    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  endif()
   add_custom_command(OUTPUT ${SILISIZER_TCLRL_INIT}
     COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCLRL_INIT} tclreadline_inits ${SILISIZER_TCLRL_TCL_FILES}
     DEPENDS ${SILISIZER_TCLRL_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
     )
 endif()
 
+# Encode silisizer Tcl into the binary the same way as tclreadline above.
+if (NOT SILISIZER_TCL_ENCODE_CMD)
+  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
+  if (TCLSH_EXECUTABLE)
+    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  else()
+    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
+  endif()
+endif()
+set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
+add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
+  COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
+  DEPENDS ${SILISIZER_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
+  )
+
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
   ${CMAKE_BINARY_DIR}/Silisizer_wrap.cc
   ${PROJECT_SOURCE_DIR}/third_party/backward-cpp/backward.cpp)
+
 
 add_library(silisizer ${silisizer_SRC})
 
