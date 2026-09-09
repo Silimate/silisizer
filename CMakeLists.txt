@@ -122,6 +122,20 @@ if (WIN32)
   add_compile_definitions(WIN32_LEAN_AND_MEAN)
 endif()
 
+# TclEncode driver: used for silisizer commands and, when enabled, tclreadline.
+find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
+if (TCLSH_EXECUTABLE)
+  set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
+else()
+  set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
+endif()
+
+set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
+add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
+  COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
+  DEPENDS ${SILISIZER_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
+  )
+
 # Embed the tclreadline Tcl scripts (interactive Loop + command completer) into
 # the executable so the interactive prompt has no external file dependency.
 # They are encoded into a C string array (named tclreadline_inits in namespace
@@ -135,32 +149,11 @@ if (TCL_READLINE)
     ${PROJECT_SOURCE_DIR}/src/tcl/tclreadlineEmbedInit.tcl
     )
   set(SILISIZER_TCLRL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclReadlineInitVar.cc)
-  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
-  if (TCLSH_EXECUTABLE)
-    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  else()
-    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  endif()
   add_custom_command(OUTPUT ${SILISIZER_TCLRL_INIT}
     COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCLRL_INIT} tclreadline_inits ${SILISIZER_TCLRL_TCL_FILES}
     DEPENDS ${SILISIZER_TCLRL_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
     )
 endif()
-
-# Encode silisizer Tcl into the binary the same way as tclreadline above.
-if (NOT SILISIZER_TCL_ENCODE_CMD)
-  find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
-  if (TCLSH_EXECUTABLE)
-    set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  else()
-    set(SILISIZER_TCL_ENCODE_CMD ${OPENSTA_HOME}/etc/TclEncode.tcl)
-  endif()
-endif()
-set(SILISIZER_TCL_INIT ${CMAKE_BINARY_DIR}/SilisizerTclInitVar.cc)
-add_custom_command(OUTPUT ${SILISIZER_TCL_INIT}
-  COMMAND ${SILISIZER_TCL_ENCODE_CMD} ${SILISIZER_TCL_INIT} silisizer_tcl_inits ${SILISIZER_TCL_FILES}
-  DEPENDS ${SILISIZER_TCL_FILES} ${OPENSTA_HOME}/etc/TclEncode.tcl
-  )
 
 set(silisizer_SRC
   ${PROJECT_SOURCE_DIR}/src/Silisizer.cpp
