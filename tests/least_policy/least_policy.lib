@@ -1,0 +1,111 @@
+library(least_policy) {
+  delay_model : table_lookup;
+  time_unit : "1ns";
+  voltage_unit : "1V";
+  current_unit : "1mA";
+  capacitive_load_unit(1, pf);
+
+  cell(BIGBUF_sp0_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("2.0");
+        }
+        cell_fall(scalar) {
+          values("2.0");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+
+  cell(BIGBUF_sp1_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("0.1");
+        }
+        cell_fall(scalar) {
+          values("0.1");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+
+  cell(SMALLBUF_sp0_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("0.2");
+        }
+        cell_fall(scalar) {
+          values("0.2");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+
+  cell(SMALLBUF_sp1_X1) {
+    pin(A) {
+      direction : input;
+    }
+    pin(Y) {
+      direction : output;
+      function : "A";
+      timing() {
+        related_pin : "A";
+        timing_sense : positive_unate;
+        cell_rise(scalar) {
+          values("0.05");
+        }
+        cell_fall(scalar) {
+          values("0.05");
+        }
+        rise_transition(scalar) {
+          values("0.1");
+        }
+        fall_transition(scalar) {
+          values("0.1");
+        }
+      }
+    }
+  }
+}

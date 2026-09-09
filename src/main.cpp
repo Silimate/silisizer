@@ -98,14 +98,15 @@ static int silisizer_argc;
 static char **silisizer_argv;
 static Silisizer *sizer = nullptr;
 
-// Tcl command wrapper for sta::silisize. It parses convergence policy flags
-// and borrows the workdir string from objv for the duration of this call.
+// Tcl command wrapper for sta::silisize. It parses convergence/selection policy
+// flags and borrows the workdir string from objv for the duration of this call.
 static int silisizeTclCmd(ClientData,
                           Tcl_Interp *interp,
                           int objc,
                           Tcl_Obj *const objv[]) {
   bool upsize_all = false;
   bool stop_on_wns_stall = false;
+  bool upsize_least = false;
   const char *workdir = nullptr;
 
   for (int i = 1; i < objc; i++) {
@@ -114,25 +115,28 @@ static int silisizeTclCmd(ClientData,
       upsize_all = true;
     else if (arg == "-wns")
       stop_on_wns_stall = true;
+    else if (arg == "-least")
+      upsize_least = true;
     else if (!arg.empty() && arg[0] == '-') {
       std::string message =
-          "unknown option \"" + arg + "\": must be -all or -wns";
+          "unknown option \"" + arg + "\": must be -all, -wns or -least";
       Tcl_SetObjResult(interp, Tcl_NewStringObj(message.c_str(), -1));
       return TCL_ERROR;
     } else if (!workdir)
       workdir = Tcl_GetString(objv[i]);
     else {
-      Tcl_WrongNumArgs(interp, 1, objv, "?-all? ?-wns? workdir");
+      Tcl_WrongNumArgs(interp, 1, objv, "?-all? ?-wns? ?-least? workdir");
       return TCL_ERROR;
     }
   }
 
   if (!workdir) {
-    Tcl_WrongNumArgs(interp, 1, objv, "?-all? ?-wns? workdir");
+    Tcl_WrongNumArgs(interp, 1, objv, "?-all? ?-wns? ?-least? workdir");
     return TCL_ERROR;
   }
 
-  int status = sizer->silisize(workdir, upsize_all, stop_on_wns_stall);
+  int status =
+      sizer->silisize(workdir, upsize_all, stop_on_wns_stall, upsize_least);
   if (status != 0) {
     std::string message =
         "silisize failed with status " + std::to_string(status);
