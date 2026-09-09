@@ -108,7 +108,7 @@ set(SILISIZER_TCL_FILES
   )
 
 # Encode silisizer Tcl commands into the binary the same way OpenSTA
-# ships tcl_inits, so `retime_tcl` is available without a file on disk.
+# ships tcl_inits, so `report_retime_candidates` is available without a file on disk.
 find_program(TCLSH_EXECUTABLE NAMES tclsh tclsh8.6 tclsh8.7 tclsh9.0 tclsh90)
 if (TCLSH_EXECUTABLE)
   set(SILISIZER_TCL_ENCODE_CMD ${TCLSH_EXECUTABLE} ${OPENSTA_HOME}/etc/TclEncode.tcl)

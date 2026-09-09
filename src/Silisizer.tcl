@@ -16,7 +16,7 @@
 
 namespace eval sta {
 
-define_cmd_args "retime_tcl" {[-nworst path_count]} \
+define_cmd_args "report_retime_candidates" {[-nworst path_count]} \
   -help {Find nworst setup paths; report JSON from/to, path slack, neighbor slacks.} \
   -arg_help {
     -nworst {`path_count`: Number of worst paths to report. The default is 20.}
@@ -60,9 +60,9 @@ proc get_flop_slack { pin pin_names } {
   return [format %.4f $worst]
 }
 
-proc retime_tcl { args } {
-  parse_key_args "retime_tcl" args keys {-nworst} flags {}
-  check_argc_eq0 "retime_tcl" $args
+proc report_retime_candidates { args } {
+  parse_key_args "report_retime_candidates" args keys {-nworst} flags {}
+  check_argc_eq0 "report_retime_candidates" $args
 
   set nworst 20
   if { [info exists keys(-nworst)] } {
