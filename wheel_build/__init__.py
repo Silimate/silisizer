@@ -268,6 +268,8 @@ def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
                     "--build",
                     d,
                     f"-j{os.cpu_count()}",
+                    "--target",
+                    "silisizer-bin",
                 ]
             )
 
