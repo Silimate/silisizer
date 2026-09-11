@@ -105,6 +105,9 @@ jobs:
             LD_LIBRARY_PATH=/opt/rh/devtoolset-11/root/lib64:$LD_LIBRARY_PATH
             PKG_CONFIG_PATH=/opt/rh/devtoolset-11/root/usr/lib64/pkgconfig:$PKG_CONFIG_PATH
             SILISIZER_WHEEL_VERSION=${{ needs.version.outputs.version }}
+          # patchelf version installed by default creates a corrupt ELF binary
+          # sometimes
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: pip3 install --upgrade patchelf && auditwheel repair -w {dest_dir} {wheel}
           # smoke test - full functionality test in other workflow
           CIBW_TEST_COMMAND: (cd {project}/tests/tclreadline && bash test silisizer)
       - uses: actions/upload-artifact@v7
