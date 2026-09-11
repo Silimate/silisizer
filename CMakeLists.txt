@@ -198,6 +198,11 @@ if (UNIX)
   target_link_libraries(silisizer PUBLIC Backward::Interface)
 endif()
 
+if(CMAKE_SYSTEM_NAME MATCHES "Linux" AND CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang" AND NOT BUILD_SHARED_LIBS)
+    target_link_options(silisizer-bin PRIVATE -static-libstdc++ -static-libgcc)
+endif()
+
+
 if (TCL_READLINE)
   target_link_libraries(OpenSTA ${TCL_READLINE_LIBRARY})
   target_include_directories(OpenSTA

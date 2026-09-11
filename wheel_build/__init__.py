@@ -257,6 +257,7 @@ def build_wheel(wheel_dir, config_settings=None, metadata_directory=None):
                     "-B",
                     d,
                     ".",
+                    "-DBUILD_SHARED_LIBS:BOOL=OFF",
                 ],
                 env=env,
             )
