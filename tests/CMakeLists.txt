@@ -67,3 +67,12 @@ add_test(
     -exit
     ${CMAKE_CURRENT_SOURCE_DIR}/least_policy/test_least_policy.tcl
 )
+
+add_test(
+  NAME sdc_name_folding
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/test_sdc_name_folding.tcl
+)
