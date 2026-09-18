@@ -22,12 +22,21 @@
 #include "StringUtil.hh"
 #include "backward.hpp"
 #include <csignal>
+#include <filesystem>
+#include <stdlib.h>
 #include <string>
 
 #include <tcl.h>
 #if TCL_READLINE
   #include <tclreadline.h>
 #endif
+
+#if defined(__APPLE__)
+  #include <mach-o/dyld.h>
+  #include <sys/param.h>
+#endif
+
+namespace fs = std::filesystem;
 
 using namespace silisizer;
 static int silisizerTclAppInit(Tcl_Interp *interp);
@@ -175,11 +184,50 @@ void signalHandler(int signo) {
   raise(SIGABRT);
 }
 
+void trySetTclLibEnv() {
+  // Tcl assumes installations are where the prefix is, which is not true as
+  // Tcl is relocated as part of Silisizer wheel installations.
+  //
+  // This checks if there's a directory named tcllib in the same directory as
+  // the silisizer executable and, if TCL_LIBRARY is unset, sets it to that
+  // directory.
+  //
+  // Only works on macOS and Linux, but these are the only platforms that
+  // we build wheels for. Does nothing otherwise.
+
+  const char *tcl_library_path = getenv("TCL_LIBRARY");
+  if (tcl_library_path != NULL) { // man getenv says NULL = unset
+    return;
+  }
+#if defined(__APPLE__)
+  uint32_t bufSize = MAXPATHLEN;
+  char executable_path_cstr[MAXPATHLEN];
+  if (_NSGetExecutablePath(executable_path_cstr, &bufSize) == 0) {
+    fs::path executable_path(executable_path_cstr);
+    fs::path tcllib = executable_path.parent_path() / "tcllib";
+    if (fs::is_directory(tcllib)) {
+      setenv("TCL_LIBRARY", tcllib.c_str(), 0);
+    }
+  }
+#elif defined(__linux__)
+  std::error_code ec;
+  fs::path executable = fs::read_symlink(fs::path("/proc/self/exe"), ec);
+  if (ec.value() == 0) {
+    fs::path tcllib = executable.parent_path() / "tcllib";
+    if (fs::is_directory(tcllib)) {
+      setenv("TCL_LIBRARY", tcllib.c_str(), 0);
+    }
+  }
+#endif
+  // Best-effort, we only support these two platforms for now.
+}
+
 int main(int argc, char *argv[]) {
   signal(SIGSEGV, signalHandler);
   signal(SIGFPE, signalHandler);
   signal(SIGINT, signalHandler);
   signal(SIGABRT, signalHandler);
+  trySetTclLibEnv();
   sizer = new Silisizer();
   sta::initSta();
   sta::Sta::setSta(sizer);
