@@ -188,15 +188,19 @@ void trySetTclLibEnv() {
   // Tcl assumes installations are where the prefix is, which is not true as
   // Tcl is relocated as part of Silisizer wheel installations.
   //
-  // This checks if there's a directory named tcllib in the same directory as
-  // the silisizer executable and, if TCL_LIBRARY is unset, sets it to that
-  // directory.
+  // If _SILISIZER_NO_SET_TCL_LIBRARY is set, this function does nothing and
+  // returns immediately.
+  //
+  // Otherwise, it checks if there's a directory named tcllib in the same
+  // directory as the silisizer executable and sets it to that directory if it
+  // exists. If it does not exist, nothing happens. This overrides any
+  // TCL_LIBRARY value that may be set in the environment.
   //
   // Only works on macOS and Linux, but these are the only platforms that
   // we build wheels for. Does nothing otherwise.
-
-  const char *tcl_library_path = getenv("TCL_LIBRARY");
+  const char *tcl_library_path = getenv("_SILISIZER_NO_SET_TCL_LIBRARY");
   if (tcl_library_path != NULL) { // man getenv says NULL = unset
+    // will fall back to user's set TCL_LIBRARY
     return;
   }
 #if defined(__APPLE__)
@@ -206,7 +210,7 @@ void trySetTclLibEnv() {
     fs::path executable_path(executable_path_cstr);
     fs::path tcllib = executable_path.parent_path() / "tcllib";
     if (fs::is_directory(tcllib)) {
-      setenv("TCL_LIBRARY", tcllib.c_str(), 0);
+      setenv("TCL_LIBRARY", tcllib.c_str(), /* overwrite */ 1);
     }
   }
 #elif defined(__linux__)
@@ -215,7 +219,7 @@ void trySetTclLibEnv() {
   if (ec.value() == 0) {
     fs::path tcllib = executable.parent_path() / "tcllib";
     if (fs::is_directory(tcllib)) {
-      setenv("TCL_LIBRARY", tcllib.c_str(), 0);
+      setenv("TCL_LIBRARY", tcllib.c_str(), /* overwrite */ 1);
     }
   }
 #endif
