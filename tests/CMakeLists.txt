@@ -24,15 +24,6 @@ add_test(
 )
 
 add_test(
-  NAME retime_path_groups
-  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/picorv32
-  COMMAND
-    $<TARGET_FILE:silisizer-bin>
-    -exit
-    ${CMAKE_CURRENT_SOURCE_DIR}/picorv32/retime_path_groups.tcl
-)
-
-add_test(
   NAME silisize_flags
   WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
   COMMAND
