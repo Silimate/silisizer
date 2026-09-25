@@ -16,10 +16,12 @@
 
 namespace eval sta {
 
-define_cmd_args "report_retime_candidates" {[-nworst path_count]} \
+define_cmd_args "report_retime_candidates" {[-nworst path_count] [-path_groups group_names]} \
   -help {Find nworst setup paths; report JSON from/to, the path, and worst neighbor paths.} \
   -arg_help {
     -nworst {`path_count`: Number of worst paths to report. The default is 20.}
+    -path_groups {`group_names`: Report only the worst path of each group, in the given\
+      order (e.g. ground truth paths, worst first), instead of sorting all paths by slack.}
   }
 
 proc retime_seq_instance { pin } {
@@ -60,8 +62,21 @@ proc report_neighbor_path { key inst } {
   return [string map {"\n" "\n    "} $report]
 }
 
+# Startpoint, endpoint and JSON report of each path. Call right after find_timing_paths:
+# later STA queries invalidate PathEnd objects.
+proc snapshot_paths { paths } {
+  set rows {}
+  foreach path $paths {
+    set source [get_property $path startpoint]
+    set sink [get_property $path endpoint]
+    with_output_to_variable report [list report_path_end $path]
+    lappend rows [list $source $sink [string trim $report]]
+  }
+  return $rows
+}
+
 proc report_retime_candidates { args } {
-  parse_key_args "report_retime_candidates" args keys {-nworst} flags {}
+  parse_key_args "report_retime_candidates" args keys {-nworst -path_groups} flags {}
   check_argc_eq0 "report_retime_candidates" $args
 
   set nworst 20
@@ -70,22 +85,30 @@ proc report_retime_candidates { args } {
     check_positive_integer "-nworst" $nworst
   }
 
-  set paths [find_timing_paths \
-               -path_delay max \
-               -group_path_count $nworst \
-               -endpoint_path_count 1 \
-               -unique_paths_to_endpoint \
-               -unique_edges_to_endpoint \
-               -sort_by_slack]
-
-  # Snapshot before any later STA queries. They invalidate PathEnd objects.
   set_report_path_format json
-  set rows {}
-  foreach path $paths {
-    set source [get_property $path startpoint]
-    set sink [get_property $path endpoint]
-    with_output_to_variable report [list report_path_end $path]
-    lappend rows [list $source $sink [string trim $report]]
+  if { [info exists keys(-path_groups)] } {
+    # Worst path of each group in the caller's order; unknown groups warn and drop out
+    set rows {}
+    foreach group [parse_path_group_arg $keys(-path_groups)] {
+      if { [llength $rows] >= $nworst } {
+        break
+      }
+      set paths [find_timing_paths \
+                   -path_group $group \
+                   -path_delay max \
+                   -group_path_count 1 \
+                   -endpoint_path_count 1 \
+                   -sort_by_slack]
+      lappend rows {*}[snapshot_paths [lrange $paths 0 0]]
+    }
+  } else {
+    set rows [snapshot_paths [find_timing_paths \
+                                -path_delay max \
+                                -group_path_count $nworst \
+                                -endpoint_path_count 1 \
+                                -unique_paths_to_endpoint \
+                                -unique_edges_to_endpoint \
+                                -sort_by_slack]]
   }
 
   set objects {}
