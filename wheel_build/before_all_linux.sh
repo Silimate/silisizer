@@ -24,8 +24,9 @@ if ! printf '%s\n' '%require "3.8"' '%%' 'start: ;' | bison -o /dev/null /dev/st
     WORKDIR=$(mktemp -d)
     (
         cd $WORKDIR
-        curl -L --retry 5 --retry-delay 3 \
-            https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz > bison.tgz
+        curl -fL --retry 5 --retry-delay 3 https://ftp.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz > bison.tgz \
+            || curl -fL --retry 5 --retry-delay 3 https://ftpmirror.gnu.org/gnu/bison/bison-${BISON_VERSION}.tar.gz > bison.tgz \
+            || curl -fL --retry 5 --retry-delay 3 https://mirrors.kernel.org/gnu/bison/bison-${BISON_VERSION}.tar.gz > bison.tgz
         echo "$BISON_SRC_HASH bison.tgz" | sha256sum -c
         tar --strip-components=1 -xzC . -f bison.tgz
         ./configure
