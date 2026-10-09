@@ -86,6 +86,7 @@ proc report_retime_candidates { args } {
   }
 
   set_report_path_format json
+  set_report_path_src_ids 1
   if { [info exists keys(-path_groups)] } {
     # Worst path of each group in the caller's order; unknown groups warn and drop out
     set rows {}
@@ -128,6 +129,7 @@ proc report_retime_candidates { args } {
   }"
   }
 
+  set_report_path_src_ids 0
   set_report_path_format full
 
   if { $objects == {} } {
