@@ -106,7 +106,7 @@ int Silisizer::silisize(const char *workdir,
     }
   }
 
-  // Output the header for back-annotation TSV. Preqorsor always reads this
+  // Output the header for back-annotation TSV. The downstream flow always reads this
   // file after SPEED==2 STA, so failing to create it must be a hard error.
   std::string workdir_str = workdir;
   std::string data_dir = workdir_str + "/data";
@@ -127,7 +127,7 @@ int Silisizer::silisize(const char *workdir,
   transforms << "Scope" << "\t" << "Instance" << std::endl;
 
   // Flush/close the transforms file and surface any write failure (disk full,
-  // NFS stale handle, flush error) as a hard error, so Preqorsor never
+  // NFS stale handle, flush error) as a hard error, so the downstream flow never
   // back-annotates a truncated resized_cells.tsv.
   auto close_transforms = [&transforms, &transforms_path]() -> int {
     transforms.close();
