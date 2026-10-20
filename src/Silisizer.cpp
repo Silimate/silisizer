@@ -282,12 +282,17 @@ int Silisizer::silisize(const char *workdir,
     // reversed so the smallest contributors are upsized first. -least only
     // changes adaptive-batch pick order, so -all keeps the default ranking
     // (resized_cells.tsv would otherwise differ despite upsizing every cell).
+    // Equal scores are ranked by instance path name: the map iterates in
+    // pointer-hash order, which follows heap layout, so ties at the batch
+    // cutoff would otherwise pick different cells for the same netlist.
     std::list<std::pair<sta::Instance*, double>> offenders;
     for (const auto& pair : offending_inst_score)
       offenders.push_back(pair);
-    offenders.sort([upsize_least, upsize_all](
+    offenders.sort([upsize_least, upsize_all, network](
                        const std::pair<sta::Instance*, double>& a,
                        const std::pair<sta::Instance*, double>& b) {
+      if (a.second == b.second)
+        return network->pathNameLess(a.first, b.first);
       const bool least_first = upsize_least && !upsize_all;
       return least_first ? a.second < b.second : a.second > b.second;
     });
