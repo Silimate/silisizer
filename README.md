@@ -31,7 +31,9 @@ sta::silisize -least workdir
 
 `-least` only changes which offenders are picked out of each pass's adaptive
 batch, so it has no effect when combined with `-all` (which upsizes every
-eligible offender anyway).
+eligible offender anyway). Under either ranking, offenders with equal
+contributions are taken in instance path name order, so the cells picked for a
+given netlist do not depend on memory layout.
 
 The policies can be combined:
 

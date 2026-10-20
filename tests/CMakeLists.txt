@@ -76,3 +76,12 @@ add_test(
     -exit
     ${CMAKE_CURRENT_SOURCE_DIR}/test_sdc_name_folding.tcl
 )
+
+add_test(
+  NAME tie_order
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/tie_order
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    ${CMAKE_CURRENT_SOURCE_DIR}/tie_order/test_tie_order.tcl
+)
