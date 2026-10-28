@@ -13,3 +13,11 @@ group_path -name gt_w1 -to [get_pins $second_end]
 group_path -name gt_w2 -to [get_pins $worst_end]
 sta::report_retime_candidates -path_groups {gt_w1 no_such_group gt_w2}
 sta::report_retime_candidates -nworst 1 -path_groups {gt_w1 gt_w2}
+
+# Candidate times print with the default report digits
+set sta_report_default_digits 8
+with_output_to_variable report { sta::report_retime_candidates -nworst 1 }
+if { ![regexp {"slack": -?[0-9]\.[0-9]{8}e} $report] } {
+  puts "RETIME_DIGITS_TEST: FAIL ($report)"
+  exit 1
+}

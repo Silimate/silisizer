@@ -76,6 +76,7 @@ proc snapshot_paths { paths } {
 }
 
 proc report_retime_candidates { args } {
+  global sta_report_default_digits
   parse_key_args "report_retime_candidates" args keys {-nworst -path_groups} flags {}
   check_argc_eq0 "report_retime_candidates" $args
 
@@ -86,6 +87,8 @@ proc report_retime_candidates { args } {
   }
 
   set_report_path_format json
+  # JSON times print with the report digits, which find_timing_paths does not set
+  set_report_path_digits $sta_report_default_digits
   if { [info exists keys(-path_groups)] } {
     # Worst path of each group in the caller's order; unknown groups warn and drop out
     set rows {}
