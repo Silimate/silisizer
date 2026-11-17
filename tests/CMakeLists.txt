@@ -85,3 +85,19 @@ add_test(
     -exit
     ${CMAKE_CURRENT_SOURCE_DIR}/tie_order/test_tie_order.tcl
 )
+
+# Run the command file from a directory with spaces in its name.
+set(path_spaces_script "${CMAKE_CURRENT_BINARY_DIR}/path spaces/test path spaces.tcl")
+configure_file(
+  ${CMAKE_CURRENT_SOURCE_DIR}/test_path_spaces.tcl
+  "${path_spaces_script}"
+  COPYONLY
+)
+add_test(
+  NAME path_spaces
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}
+  COMMAND
+    $<TARGET_FILE:silisizer-bin>
+    -exit
+    "${path_spaces_script}"
+)
